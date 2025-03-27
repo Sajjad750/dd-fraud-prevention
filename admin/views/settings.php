@@ -15,7 +15,7 @@ if (isset($_REQUEST['s']))
     
     <h2>Search</h2>
     <form id="dd-fraud-search" class="dd-fraud-search" method="get">
-        <input type="hidden" name="page" value="dd_fraud">
+        <input type="hidden" name="page" value="dd_fraud_ip">
         <input type="text" name="s" placeholder="<?php _e( 'Search Keywords', 'admin-search' ); ?>" value="<?php echo $search_term ?>" autocomplete="off" id="dd-fraud-search-input">
         <input class="button button-primary" type="submit" value="Search"/></p>
     </form>
@@ -27,8 +27,9 @@ if (isset($_REQUEST['s']))
             <option selected>Bigo ID</option>
             <option>Email</option>
             <option>Name</option>
+            <option>IP Address</option>
         </select></p>
-        <p><label for="name">ID / Email / Name</label><br>
+        <p><label for="name">ID / Email / Name / IP</label><br>
         <input type="text" name="name" value=""></p>
         <p><label for="flag">Flag</label><br>
         <select name="flag">
@@ -176,14 +177,13 @@ if (isset($_REQUEST['s']))
 
     if (isset($_REQUEST['action']) && $_REQUEST['action'] === "delete")
     {
-
         if (!isset($_REQUEST['type']) && !isset($_REQUEST['id']))
         {
             exit();
         }
 
         $type = $_REQUEST['type'];
-        $accepted_types = ['bigo_id', 'email', 'customer_name'];
+        $accepted_types = ['bigo_id', 'email', 'customer_name', 'ip_address'];
 
         if (!in_array($type, $accepted_types))
         {
@@ -208,37 +208,44 @@ if (isset($_REQUEST['s']))
 <?php
 function generate_results_table($count, $type, $title, $results)
 {
-ob_start();
+    ob_start();
 
-$heading = $count . " " . $title;
-$heading .= $count > 1 ? "s" : "";
-?>
+    $heading = $count . " " . $title;
+    $heading .= $count > 1 ? "s" : "";
+    ?>
 
-<h3><?php echo $heading ?> Found</h3>
-    <table>
-        <tr>
-            <th>ID</th>
-            <th><?php $title ?></th>
-            <th>Flag</th>
-        </tr>
-        <?php
-            foreach($results as $result) {
-                $delete_url = "?page=dd_fraud&action=delete&type=" . $type ."&id=" . $result['id'];
-        ?>
-                <tr>
-                    <td><?php echo $result['id'] ?></td>
-                    <td><?php echo $result[$type] ?></td>
-                    <td><?php echo $result['flag'] ?></td>
-                    <td><a href='<?php echo $delete_url ?>'>Delete</a></td>
-                </tr>
-        <?php } ?>
+    <h3><?php echo $heading ?> Found</h3>
+    <table class="widefat">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th><?php echo $title; ?></th>
+                <th>Flag</th>
+                <th>Notes</th>
+                <th>Created At</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php
+                foreach($results as $result) {
+                    $delete_url = "?page=dd_fraud_ip&action=delete&type=" . $type ."&id=" . $result['id'];
+            ?>
+                    <tr>
+                        <td><?php echo esc_html($result['id']); ?></td>
+                        <td><?php echo esc_html($result[$type]); ?></td>
+                        <td><?php echo esc_html($result['flag']); ?></td>
+                        <td><?php echo esc_html($result['notes']); ?></td>
+                        <td><?php echo esc_html($result['created_at']); ?></td>
+                        <td><a href='<?php echo esc_url($delete_url); ?>'>Delete</a></td>
+                    </tr>
+            <?php } ?>
+        </tbody>
     </table>
 
-<?php
+    <?php
+    $output = ob_get_contents();
+    ob_end_clean();
 
-$output = ob_get_contents();
-ob_end_clean();
-
-return $output;
-
+    return $output;
 }
