@@ -1,0 +1,132 @@
+/**
+ * All of the CSS for your admin-specific functionality should be
+ * included in this file.
+ */
+
+.order-status.status-blocked,
+.fraud_details_status.blocked,
+.fraud_details_header.blocked
+{
+  background-color: #f2dede;
+  color: #a94442;
+}
+
+.order-status.status-verified,
+.fraud_details_status.verified,
+.fraud_details_header.verified
+{
+  color: #3c763d;
+  background-color: #dff0d8;
+}
+
+.order-status.status-review-required,
+.fraud_details_status.review,
+.fraud_details_header.review
+{
+  color: #8a6d3b;
+  background-color: #fcf8e3;
+}
+
+.fraud_details_status.no_data,
+.fraud_details_header.no_data {
+  color: #333;
+  background-color: #ddd;
+}
+
+.fraud_details_header
+{
+  text-align: center;
+  padding: 5px;
+  margin-bottom: 10px;
+}
+
+.fraud_details_wrapper
+{
+  display: flex;
+  padding: 0 20px;
+}
+
+.fraud_details_column
+{
+  width: 33%;
+}
+
+.fraud_details_heading
+{
+  font-size: 1.25em;
+  text-transform: uppercase;
+}
+
+.fraud_details_status
+{
+  font-size: 1em;
+  text-transform: uppercase;
+  background-color: #dff0d8;
+  padding: 10px;
+  margin-left: 10px;
+}
+
+.fraud_details_column ul {
+  list-style: disc;
+  margin-left: 20px;
+}
+
+.fraud_details_title {
+  font-size: 1.25em;
+  text-transform: capitalize;
+  font-weight: bold;
+  margin-top: 20px;
+  margin-left: 20px;
+}
+
+.flex_row {
+  display: flex;
+  flex-direction: row;
+}
+
+.content_left, .content_right {
+  width: 50%;
+}
+
+.input_group {
+  margin: 10px 0;
+}
+
+.input_group label {
+  margin-bottom: 5px;
+}
+
+.input_group label, .input_group input {
+  display: block;
+}
+
+.wrap h2 {
+  font-size: 1.5em;
+}
+
+.form-table {
+    margin-top: 20px;
+}
+
+.form-table th {
+    padding: 20px 10px 20px 0;
+    width: 200px;
+}
+
+.form-table td {
+    padding: 15px 10px;
+}
+
+.form-table input[type="number"] {
+    width: 100px;
+}
+
+.form-table select {
+    min-width: 200px;
+}
+
+.form-table .description {
+    margin-top: 5px;
+    color: #666;
+    font-style: italic;
+}

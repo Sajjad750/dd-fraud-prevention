@@ -1,0 +1,18 @@
+/**
+ * All of the CSS for your public-facing functionality should be
+ * included in this file.
+ */
+
+.form-row.woocommerce-invalid label {
+    color: #a00;
+}
+
+.form-row.woocommerce-invalid input.input-text {
+    border-color: #a00;
+}
+
+.woocommerce p.error-message {
+    margin-top: 5px;
+    margin-bottom: 5px;
+    font-size: 12px;
+}
