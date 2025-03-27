@@ -779,23 +779,23 @@ function dd_fraud_details_html($post) {
         unserialize($auto_fraud_check_string) : 
         json_decode(stripslashes($auto_fraud_check_string), true);
 
-    // Determine overall status
-    $status = 'processing';
+    // Determine status and icon
+    $status = 'Processing';
     $status_class = '';
     $status_icon = '';
     $status_description = '';
     
-    if ($post->post_status === "wc-blocked") {
+    if ($order->get_status() === "blocked") {
         $status = "Blocked";
         $status_class = "blocked";
         $status_icon = "🚫";
-        $status_description = "This order has been blocked due to fraud detection.";
-    } else if ($post->post_status === "wc-review-required") {
+        $status_description = "This order has been blocked due to suspected fraudulent activity.";
+    } else if ($order->get_status() === "review-required") {
         $status = "Held for Review";
         $status_class = "review";
         $status_icon = "⚠️";
         $status_description = "This order requires manual review due to suspicious activity.";
-    } else if ($post->post_status === "processing") {
+    } else if ($order->get_status() === "verified") {
         $status = "Verified";
         $status_class = "verified";
         $status_icon = "✅";
@@ -824,100 +824,117 @@ function dd_fraud_details_html($post) {
     $current_status = $order->get_status();
     ?>
 
-    <div class="fraud_details_container">
+    <div class="fraud-details-container">
+        <!-- Status Banner -->
+        <div class="fraud-status-banner <?php echo esc_attr($status_class); ?>">
+            <div class="fraud-status-icon"><?php echo $status_icon; ?></div>
+            <div class="fraud-status-content">
+                <h2><?php echo esc_html($status); ?></h2>
+                <p><?php echo esc_html($status_description); ?></p>
+            </div>
+        </div>
+
         <!-- Quick Actions -->
-        <div class="fraud_quick_actions">
+        <div class="fraud-quick-actions">
             <?php if ($current_status !== 'blocked'): ?>
-                <button type="button" class="button button-danger block-customer" data-order-id="<?php echo $order->get_id(); ?>">
-                    <span class="dashicons dashicons-no-alt"></span> Block Customer
+                <button type="button" class="fraud-quick-action-button block" data-order-id="<?php echo $order->get_id(); ?>">
+                    <span class="dashicons dashicons-shield"></span>
+                    Block Customer
+                    <span class="fraud-tooltip">
+                        Block this customer from placing future orders. 
+                        This will affect all orders using the same email, Bigo ID, or IP address.
+                        <br><kbd>Alt</kbd> + <kbd>B</kbd>
+                    </span>
                 </button>
             <?php else: ?>
-                <button type="button" class="button button-primary unblock-customer" data-order-id="<?php echo $order->get_id(); ?>">
-                    <span class="dashicons dashicons-yes-alt"></span> Unblock Customer
+                <button type="button" class="fraud-quick-action-button verify" data-order-id="<?php echo $order->get_id(); ?>">
+                    <span class="dashicons dashicons-yes"></span>
+                    Unblock Customer
+                    <span class="fraud-tooltip">
+                        Remove blocking restrictions from this customer. 
+                        This will allow future orders from this customer.
+                        <br><kbd>Alt</kbd> + <kbd>U</kbd>
+                    </span>
                 </button>
             <?php endif; ?>
+            
             <?php if ($current_status === 'review-required'): ?>
-                <button type="button" class="button button-primary verify-customer" data-order-id="<?php echo $order->get_id(); ?>">
-                    <span class="dashicons dashicons-yes"></span> Verify Customer
+                <button type="button" class="fraud-quick-action-button verify" data-order-id="<?php echo $order->get_id(); ?>">
+                    <span class="dashicons dashicons-yes-alt"></span>
+                    Verify Customer
+                    <span class="fraud-tooltip">
+                        Mark this customer as verified. 
+                        Future orders will be processed automatically.
+                        <br><kbd>Alt</kbd> + <kbd>V</kbd>
+                    </span>
                 </button>
             <?php endif; ?>
         </div>
 
-        <!-- Overall Status Banner -->
-        <div class="fraud_status_banner <?php echo $status_class; ?>">
-            <div class="fraud_status_icon"><?php echo $status_icon; ?></div>
-            <div class="fraud_status_content">
-                <h2><?php echo $status; ?></h2>
-                <p><?php echo $status_description; ?></p>
+        <!-- Fraud Check Details -->
+        <div class="fraud-details-grid">
+            <!-- Bigo ID -->
+            <div class="fraud-detail-card">
+                <h4>Bigo ID</h4>
+                <div class="fraud-detail-value"><?php echo esc_html($bigo_id); ?></div>
+                <?php if (!empty($fraud_check_arr['bigo_id'])): ?>
+                    <div class="fraud-status-badge <?php echo esc_attr($fraud_check_arr['bigo_id']['flag']); ?>">
+                        <?php echo esc_html(ucfirst($fraud_check_arr['bigo_id']['flag'])); ?>
+                    </div>
+                    <?php if (!empty($fraud_check_arr['bigo_id']['notes'])): ?>
+                        <div class="fraud-notes"><?php echo wp_kses_post($fraud_check_arr['bigo_id']['notes']); ?></div>
+                    <?php endif; ?>
+                <?php endif; ?>
             </div>
-        </div>
 
-        <!-- Manual Scan Results -->
-        <div class="fraud_section">
-            <h3>Manual Scan Results</h3>
-            <div class="fraud_details_grid">
-                <!-- Bigo ID -->
-                <div class="fraud_detail_card">
-                    <h4>Bigo ID</h4>
-                    <div class="fraud_detail_value"><?php echo esc_html($bigo_id); ?></div>
-                    <?php if (!empty($fraud_check_arr['bigo_id'])): ?>
-                        <div class="fraud_status_badge <?php echo $fraud_check_arr['bigo_id']['flag']; ?>">
-                            <?php echo ucfirst($fraud_check_arr['bigo_id']['flag']); ?>
-                        </div>
-                        <?php if (!empty($fraud_check_arr['bigo_id']['notes'])): ?>
-                            <div class="fraud_notes"><?php echo wp_kses_post($fraud_check_arr['bigo_id']['notes']); ?></div>
-                        <?php endif; ?>
+            <!-- Email -->
+            <div class="fraud-detail-card">
+                <h4>Email</h4>
+                <div class="fraud-detail-value"><?php echo esc_html($email); ?></div>
+                <?php if (!empty($fraud_check_arr['email'])): ?>
+                    <div class="fraud-status-badge <?php echo esc_attr($fraud_check_arr['email']['flag']); ?>">
+                        <?php echo esc_html(ucfirst($fraud_check_arr['email']['flag'])); ?>
+                    </div>
+                    <?php if (!empty($fraud_check_arr['email']['notes'])): ?>
+                        <div class="fraud-notes"><?php echo wp_kses_post($fraud_check_arr['email']['notes']); ?></div>
                     <?php endif; ?>
-                </div>
-
-                <!-- Email -->
-                <div class="fraud_detail_card">
-                    <h4>Email</h4>
-                    <div class="fraud_detail_value"><?php echo esc_html($email); ?></div>
-                    <?php if (!empty($fraud_check_arr['email'])): ?>
-                        <div class="fraud_status_badge <?php echo $fraud_check_arr['email']['flag']; ?>">
-                            <?php echo ucfirst($fraud_check_arr['email']['flag']); ?>
-                        </div>
-                        <?php if (!empty($fraud_check_arr['email']['notes'])): ?>
-                            <div class="fraud_notes"><?php echo wp_kses_post($fraud_check_arr['email']['notes']); ?></div>
-                        <?php endif; ?>
-                    <?php endif; ?>
-                </div>
-
-                <!-- Customer Name -->
-                <div class="fraud_detail_card">
-                    <h4>Customer Name</h4>
-                    <div class="fraud_detail_value"><?php echo esc_html($customer_name); ?></div>
-                    <?php if (!empty($fraud_check_arr['customer_name'])): ?>
-                        <div class="fraud_status_badge <?php echo $fraud_check_arr['customer_name']['flag']; ?>">
-                            <?php echo ucfirst($fraud_check_arr['customer_name']['flag']); ?>
-                        </div>
-                        <?php if (!empty($fraud_check_arr['customer_name']['notes'])): ?>
-                            <div class="fraud_notes"><?php echo wp_kses_post($fraud_check_arr['customer_name']['notes']); ?></div>
-                        <?php endif; ?>
-                    <?php endif; ?>
-                </div>
-
-                <!-- IP Address -->
-                <div class="fraud_detail_card">
-                    <h4>IP Address</h4>
-                    <div class="fraud_detail_value"><?php echo esc_html($ip_address); ?></div>
-                    <?php if (!empty($fraud_check_arr['ip_address'])): ?>
-                        <div class="fraud_status_badge <?php echo $fraud_check_arr['ip_address']['flag']; ?>">
-                            <?php echo ucfirst($fraud_check_arr['ip_address']['flag']); ?>
-                        </div>
-                        <?php if (!empty($fraud_check_arr['ip_address']['notes'])): ?>
-                            <div class="fraud_notes"><?php echo wp_kses_post($fraud_check_arr['ip_address']['notes']); ?></div>
-                        <?php endif; ?>
-                    <?php endif; ?>
-                </div>
+                <?php endif; ?>
             </div>
-        </div>
+
+            <!-- Customer Name -->
+            <div class="fraud-detail-card">
+                <h4>Customer Name</h4>
+                <div class="fraud-detail-value"><?php echo esc_html($customer_name); ?></div>
+                <?php if (!empty($fraud_check_arr['customer_name'])): ?>
+                    <div class="fraud-status-badge <?php echo esc_attr($fraud_check_arr['customer_name']['flag']); ?>">
+                        <?php echo esc_html(ucfirst($fraud_check_arr['customer_name']['flag'])); ?>
+                    </div>
+                    <?php if (!empty($fraud_check_arr['customer_name']['notes'])): ?>
+                        <div class="fraud-notes"><?php echo wp_kses_post($fraud_check_arr['customer_name']['notes']); ?></div>
+                    <?php endif; ?>
+                <?php endif; ?>
+            </div>
+
+            <!-- IP Address -->
+            <div class="fraud-detail-card">
+                <h4>IP Address</h4>
+                <div class="fraud-detail-value"><?php echo esc_html($ip_address); ?></div>
+                <?php if (!empty($fraud_check_arr['ip_address'])): ?>
+                    <div class="fraud-status-badge <?php echo esc_attr($fraud_check_arr['ip_address']['flag']); ?>">
+                        <?php echo esc_html(ucfirst($fraud_check_arr['ip_address']['flag'])); ?>
+                    </div>
+                    <?php if (!empty($fraud_check_arr['ip_address']['notes'])): ?>
+                        <div class="fraud-notes"><?php echo wp_kses_post($fraud_check_arr['ip_address']['notes']); ?></div>
+                    <?php endif; ?>
+                <?php endif; ?>
+            </div>
+
+            
 
         <!-- Discrepancies Section -->
         <?php if (!empty($discrepancies)): ?>
         <div class="fraud_section">
-            <h3>Discrepancies Found in Last <?php echo esc_html(get_option('dd_fraud_order_limit', '100')); ?> Orders</h3>
+            <h3>Discrepancies Found in Last <?php echo esc_htmSl(get_option('dd_fraud_order_limit', '100')); ?> Orders</h3>
             <div class="discrepancies_grid">
                 <?php if (!empty($discrepancies['emails'])): ?>
                 <div class="discrepancy_card">
@@ -954,7 +971,7 @@ function dd_fraud_details_html($post) {
             </div>
         </div>
         <?php endif; ?>
-
+  
         <!-- Flagged Items -->
         <?php if (!empty($flagged_bigo_ids) || !empty($flagged_emails)): ?>
         <div class="fraud_section">
@@ -976,14 +993,14 @@ function dd_fraud_details_html($post) {
     </div>
 
     <style>
-    .fraud_details_container {
+    .fraud-details-container {
         padding: 20px;
         background: #fff;
         border-radius: 8px;
         box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
 
-    .fraud_quick_actions {
+    .fraud-quick-actions {
         margin-bottom: 20px;
         padding: 15px;
         background: #f8f9fa;
@@ -992,24 +1009,35 @@ function dd_fraud_details_html($post) {
         gap: 10px;
     }
 
-    .fraud_quick_actions .button {
+    .fraud-quick-actions .fraud-quick-action-button {
         display: flex;
         align-items: center;
         gap: 5px;
     }
 
-    .fraud_quick_actions .button-danger {
+    .fraud-quick-actions .fraud-quick-action-button.block {
         background: #dc3545;
         border-color: #dc3545;
         color: #fff;
     }
 
-    .fraud_quick_actions .button-danger:hover {
+    .fraud-quick-actions .fraud-quick-action-button.block:hover {
         background: #c82333;
         border-color: #bd2130;
     }
 
-    .fraud_status_banner {
+    .fraud-quick-actions .fraud-quick-action-button.verify {
+        background: #28a745;
+        border-color: #28a745;
+        color: #fff;
+    }
+
+    .fraud-quick-actions .fraud-quick-action-button.verify:hover {
+        background: #218838;
+        border-color: #1e7e34;
+    }
+
+    .fraud-status-banner {
         padding: 20px;
         margin-bottom: 20px;
         border-radius: 4px;
@@ -1018,74 +1046,60 @@ function dd_fraud_details_html($post) {
         gap: 20px;
     }
 
-    .fraud_status_banner.blocked {
+    .fraud-status-banner.blocked {
         background: #ffebee;
         border: 1px solid #ffcdd2;
     }
 
-    .fraud_status_banner.review {
+    .fraud-status-banner.review {
         background: #fff3e0;
         border: 1px solid #ffe0b2;
     }
 
-    .fraud_status_banner.verified {
+    .fraud-status-banner.verified {
         background: #e8f5e9;
         border: 1px solid #c8e6c9;
     }
 
-    .fraud_status_icon {
+    .fraud-status-icon {
         font-size: 32px;
     }
 
-    .fraud_status_content h2 {
+    .fraud-status-content h2 {
         margin: 0;
         font-size: 24px;
     }
 
-    .fraud_status_content p {
+    .fraud-status-content p {
         margin: 5px 0 0;
         color: #666;
     }
 
-    .fraud_section {
-        margin: 20px 0;
-        padding: 15px;
-        background: #f9f9f9;
-        border-radius: 4px;
-    }
-
-    .fraud_section h3 {
-        margin-top: 0;
-        color: #333;
-        border-bottom: 1px solid #eee;
-        padding-bottom: 10px;
-    }
-
-    .fraud_details_grid {
+    .fraud-details-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
         gap: 20px;
         margin-top: 15px;
     }
 
-    .fraud_detail_card {
+    .fraud-detail-card {
         background: #fff;
         padding: 15px;
         border-radius: 4px;
         box-shadow: 0 1px 2px rgba(0,0,0,0.05);
     }
 
-    .fraud_detail_card h4 {
+    .fraud-detail-card h4 {
         margin: 0 0 10px 0;
         color: #666;
     }
 
-    .fraud_detail_value {
+    .fraud-detail-value {
         font-weight: bold;
         margin-bottom: 10px;
     }
 
-    .fraud_status_badge {
+    .fraud-status-badge {
         display: inline-block;
         padding: 4px 8px;
         border-radius: 3px;
@@ -1094,22 +1108,22 @@ function dd_fraud_details_html($post) {
         text-transform: uppercase;
     }
 
-    .fraud_status_badge.blocked {
+    .fraud-status-badge.blocked {
         background: #ffebee;
         color: #c62828;
     }
 
-    .fraud_status_badge.review {
+    .fraud-status-badge.review {
         background: #fff3e0;
         color: #ef6c00;
     }
 
-    .fraud_status_badge.verified {
+    .fraud-status-badge.verified {
         background: #e8f5e9;
         color: #2e7d32;
     }
 
-    .fraud_notes {
+    .fraud-notes {
         margin-top: 10px;
         font-size: 12px;
         color: #666;
@@ -1161,9 +1175,30 @@ function dd_fraud_details_html($post) {
 
     <script>
     jQuery(document).ready(function($) {
+        // Keyboard shortcuts
+        $(document).on('keydown', function(e) {
+            // Only process if no input/textarea is focused
+            if ($('input:focus, textarea:focus').length) {
+                return;
+            }
+            
+            // Alt + B: Block Customer
+            if (e.altKey && e.key.toLowerCase() === 'b') {
+                $('.fraud-quick-action-button.block').click();
+            }
+            // Alt + U: Unblock Customer
+            if (e.altKey && e.key.toLowerCase() === 'u') {
+                $('.fraud-quick-action-button.verify:contains("Unblock")').click();
+            }
+            // Alt + V: Verify Customer
+            if (e.altKey && e.key.toLowerCase() === 'v') {
+                $('.fraud-quick-action-button.verify:contains("Verify")').click();
+            }
+        });
+
         // Block Customer
-        $('.block-customer').on('click', function() {
-            if (!confirm('Are you sure you want to block this customer? This will prevent them from placing future orders.')) {
+        $('.fraud-quick-action-button.block').on('click', function() {
+            if (!confirm('Are you sure you want to block this customer?\n\nThis will:\n- Prevent future orders\n- Flag associated email and Bigo ID\n- Block the IP address')) {
                 return;
             }
             
@@ -1181,42 +1216,27 @@ function dd_fraud_details_html($post) {
             });
         });
 
-        // Unblock Customer
-        $('.unblock-customer').on('click', function() {
-            if (!confirm('Are you sure you want to unblock this customer?')) {
-                return;
-            }
-            
-            var orderId = $(this).data('order-id');
-            $.post(ajaxurl, {
-                action: 'dd_unblock_customer',
-                order_id: orderId,
-                nonce: '<?php echo wp_create_nonce('dd_fraud_nonce'); ?>'
-            }, function(response) {
-                if (response.success) {
-                    location.reload();
-                } else {
-                    alert('Error unblocking customer: ' + response.data);
-                }
-            });
-        });
+        // Verify/Unblock Customer
+        $('.fraud-quick-action-button.verify').on('click', function() {
+            var isUnblock = $(this).text().trim().startsWith('Unblock');
+            var confirmMessage = isUnblock ? 
+                'Are you sure you want to unblock this customer?\n\nThis will:\n- Allow future orders\n- Remove blocking flags\n- Enable normal order processing' :
+                'Are you sure you want to verify this customer?\n\nThis will:\n- Mark the customer as verified\n- Allow future orders\n- Enable automatic processing';
 
-        // Verify Customer
-        $('.verify-customer').on('click', function() {
-            if (!confirm('Are you sure you want to verify this customer?')) {
+            if (!confirm(confirmMessage)) {
                 return;
             }
             
             var orderId = $(this).data('order-id');
             $.post(ajaxurl, {
-                action: 'dd_verify_customer',
+                action: isUnblock ? 'dd_unblock_customer' : 'dd_verify_customer',
                 order_id: orderId,
                 nonce: '<?php echo wp_create_nonce('dd_fraud_nonce'); ?>'
             }, function(response) {
                 if (response.success) {
                     location.reload();
                 } else {
-                    alert('Error verifying customer: ' + response.data);
+                    alert('Error ' + (isUnblock ? 'unblocking' : 'verifying') + ' customer: ' + response.data);
                 }
             });
         });

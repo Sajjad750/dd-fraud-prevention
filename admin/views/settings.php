@@ -233,14 +233,7 @@ function generate_results_table($count, $type, $title, $results)
             ?>
                     <tr>
                         <td><?php echo esc_html($result['id']); ?></td>
-                        <td><?php 
-                            // Handle IP address specifically
-                            if ($type === 'ip_address') {
-                                echo esc_html($result['ip_address']);
-                            } else {
-                                echo esc_html($result[$type]);
-                            }
-                        ?></td>
+                        <td><?php echo esc_html($result[$type]); ?></td>
                         <td><?php echo esc_html($result['flag']); ?></td>
                         <td><?php echo esc_html($result['notes']); ?></td>
                         <td><?php echo esc_html($result['created_at']); ?></td>

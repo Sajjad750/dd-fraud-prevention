@@ -130,3 +130,242 @@
     color: #666;
     font-style: italic;
 }
+
+/* Fraud Status Styles */
+.fraud-status-badge {
+    display: inline-block;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 14px;
+    text-transform: uppercase;
+    margin: 10px 0;
+    position: relative;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.fraud-status-badge::before {
+    content: '';
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 8px;
+}
+
+.fraud-status-badge.blocked {
+    background-color: #ffebee;
+    color: #c62828;
+    border: 1px solid #ef9a9a;
+}
+
+.fraud-status-badge.blocked::before {
+    background-color: #c62828;
+}
+
+.fraud-status-badge.review {
+    background-color: #fff3e0;
+    color: #ef6c00;
+    border: 1px solid #ffcc80;
+}
+
+.fraud-status-badge.review::before {
+    background-color: #ef6c00;
+}
+
+.fraud-status-badge.verified {
+    background-color: #e8f5e9;
+    color: #2e7d32;
+    border: 1px solid #a5d6a7;
+}
+
+.fraud-status-badge.verified::before {
+    background-color: #2e7d32;
+}
+
+/* Fraud Status Banner */
+.fraud-status-banner {
+    margin: 20px 0;
+    padding: 20px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.fraud-status-banner.blocked {
+    background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
+    border: 1px solid #ef9a9a;
+}
+
+.fraud-status-banner.review {
+    background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+    border: 1px solid #ffcc80;
+}
+
+.fraud-status-banner.verified {
+    background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+    border: 1px solid #a5d6a7;
+}
+
+.fraud-status-icon {
+    font-size: 24px;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: white;
+}
+
+.fraud-status-content {
+    flex: 1;
+}
+
+.fraud-status-content h2 {
+    margin: 0 0 5px 0;
+    font-size: 20px;
+    font-weight: bold;
+}
+
+.fraud-status-content p {
+    margin: 0;
+    color: #666;
+}
+
+/* Quick Actions */
+.fraud-quick-actions {
+    margin: 20px 0;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    display: flex;
+    gap: 10px;
+    border: 1px solid #e9ecef;
+}
+
+.fraud-quick-action-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.fraud-quick-action-button.block {
+    background: #dc3545;
+    color: white;
+    border: 1px solid #dc3545;
+}
+
+.fraud-quick-action-button.block:hover {
+    background: #c82333;
+    border-color: #bd2130;
+}
+
+.fraud-quick-action-button.verify {
+    background: #28a745;
+    color: white;
+    border: 1px solid #28a745;
+}
+
+.fraud-quick-action-button.verify:hover {
+    background: #218838;
+    border-color: #1e7e34;
+}
+
+.fraud-quick-action-button.review {
+    background: #ffc107;
+    color: #000;
+    border: 1px solid #ffc107;
+}
+
+.fraud-quick-action-button.review:hover {
+    background: #e0a800;
+    border-color: #d39e00;
+}
+
+/* Tooltip Styles */
+.fraud-tooltip {
+    visibility: hidden;
+    position: absolute;
+    z-index: 999;
+    bottom: 125%;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 8px 12px;
+    background-color: #333;
+    color: #fff;
+    text-align: center;
+    border-radius: 4px;
+    font-size: 12px;
+    line-height: 1.4;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.3s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    width: max-content;
+    max-width: 200px;
+}
+
+.fraud-tooltip::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    margin-left: -5px;
+    border-width: 5px;
+    border-style: solid;
+    border-color: #333 transparent transparent transparent;
+}
+
+.fraud-quick-action-button:hover .fraud-tooltip {
+    visibility: visible;
+    opacity: 1;
+}
+
+/* Keyboard Shortcut Style */
+.fraud-tooltip kbd {
+    display: inline-block;
+    padding: 2px 4px;
+    font-size: 11px;
+    line-height: 1;
+    color: #fff;
+    background-color: #555;
+    border-radius: 3px;
+    box-shadow: 0 1px 1px rgba(0,0,0,.2);
+    margin: 0 2px;
+}
+
+/* Additional hover states for buttons */
+.fraud-quick-action-button:active {
+    transform: translateY(1px);
+}
+
+/* Status Indicators in Order List */
+.column-order_status .status-blocked {
+    background: #ffebee;
+    color: #c62828;
+    border: 1px solid #ef9a9a;
+    font-weight: bold;
+}
+
+.column-order_status .status-review-required {
+    background: #fff3e0;
+    color: #ef6c00;
+    border: 1px solid #ffcc80;
+    font-weight: bold;
+}
+
+.column-order_status .status-verified {
+    background: #e8f5e9;
+    color: #2e7d32;
+    border: 1px solid #a5d6a7;
+    font-weight: bold;
+}
