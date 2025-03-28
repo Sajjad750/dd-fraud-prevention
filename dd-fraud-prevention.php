@@ -929,7 +929,37 @@ function dd_fraud_details_html($post) {
                 <?php endif; ?>
             </div>
 
-            
+            <!-- Trigger Type -->
+            <div class="fraud-detail-card">
+                <h4>Trigger Type</h4>
+                <div class="fraud-detail-value">
+                    <?php echo esc_html($fraud_check_arr['bigo_id']['trigger_type'] ?? 'N/A'); ?>
+                </div>
+            </div>
+
+            <!-- Email Trigger Type -->
+            <div class="fraud-detail-card">
+                <h4>Trigger Type</h4>
+                <div class="fraud-detail-value">
+                    <?php echo esc_html($fraud_check_arr['email']['trigger_type'] ?? 'N/A'); ?>
+                </div>
+            </div>
+
+            <!-- Customer Name Trigger Type -->
+            <div class="fraud-detail-card">
+                <h4>Trigger Type</h4>
+                <div class="fraud-detail-value">
+                    <?php echo esc_html($fraud_check_arr['customer_name']['trigger_type'] ?? 'N/A'); ?>
+                </div>
+            </div>
+
+            <!-- IP Address Trigger Type -->
+            <div class="fraud-detail-card">
+                <h4>Trigger Type</h4>
+                <div class="fraud-detail-value">
+                    <?php echo esc_html($fraud_check_arr['ip_address']['trigger_type'] ?? 'N/A'); ?>
+                </div>
+            </div>
 
         <!-- Discrepancies Section -->
         <?php if (!empty($discrepancies)): ?>
@@ -1282,7 +1312,7 @@ function dd_import()
 			}
 	
 			$type = $header[0];
-			$accepted_types = ['bigo_id', 'email', 'customer_name', 'ip'];
+			$accepted_types = ['bigo_id', 'email', 'customer_name', 'ip_address'];
 	
 			if (!in_array($type, $accepted_types))
 			{
@@ -1364,7 +1394,20 @@ function dd_add_entry()
 	$notes = sanitize_textarea_field($_POST['notes']);
 
 	$date = date('Y-m-d h:i:s');
-	$sql = $wpdb->prepare( "INSERT INTO $table ({$type}, flag, notes, created_at) VALUES (%s, %s, %s, %s) ON DUPLICATE KEY UPDATE flag = %s, notes = %s", [$entry, $_POST['flag'], $notes, $date, $_POST['flag'], $notes]);
+	$current_user = wp_get_current_user();
+	$admin_user = $current_user->user_login;
+
+	$trigger_type = 'manual'; // Default to manual
+
+	// Example logic to determine if the block is automatic
+	if ($is_automatic) {
+		$trigger_type = 'automatic';
+	}
+
+	$sql = $wpdb->prepare(
+		"INSERT INTO $table ({$type}, flag, notes, created_at, admin_user, trigger_type) VALUES (%s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE flag = %s, notes = %s, admin_user = %s, trigger_type = %s",
+		[$entry, $_POST['flag'], $notes, $date, $admin_user, $trigger_type, $_POST['flag'], $notes, $admin_user, $trigger_type]
+	);
 
 	$added = $wpdb->get_results($sql);
 
@@ -1453,7 +1496,9 @@ function dd_block_customer_ajax() {
             'bigo_id' => $bigo_id,
             'flag' => 'blocked',
             'notes' => 'Manually blocked from order #' . $order_id,
-            'created_at' => current_time('mysql')
+            'created_at' => current_time('mysql'),
+            'admin_user' => $admin_user,
+            'trigger_type' => 'manual'
         ));
     }
 
@@ -1464,7 +1509,9 @@ function dd_block_customer_ajax() {
             'email' => $email,
             'flag' => 'blocked',
             'notes' => 'Manually blocked from order #' . $order_id,
-            'created_at' => current_time('mysql')
+            'created_at' => current_time('mysql'),
+            'admin_user' => $admin_user,
+            'trigger_type' => 'manual'
         ));
     }
 
@@ -1475,7 +1522,9 @@ function dd_block_customer_ajax() {
             'customer_name' => $name,
             'flag' => 'blocked',
             'notes' => 'Manually blocked from order #' . $order_id,
-            'created_at' => current_time('mysql')
+            'created_at' => current_time('mysql'),
+            'admin_user' => $admin_user,
+            'trigger_type' => 'manual'
         ));
     }
 
@@ -1486,7 +1535,9 @@ function dd_block_customer_ajax() {
             'ip_address' => $ip_address,
             'flag' => 'blocked',
             'notes' => 'Manually blocked from order #' . $order_id,
-            'created_at' => current_time('mysql')
+            'created_at' => current_time('mysql'),
+            'admin_user' => $admin_user,
+            'trigger_type' => 'manual'
         ));
     }
 
@@ -1581,7 +1632,9 @@ function dd_verify_customer_ajax() {
             'bigo_id' => $bigo_id,
             'flag' => 'verified',
             'notes' => 'Manually verified from order #' . $order_id,
-            'created_at' => current_time('mysql')
+            'created_at' => current_time('mysql'),
+            'admin_user' => $admin_user,
+            'trigger_type' => 'manual'
         ));
     }
 
@@ -1592,7 +1645,9 @@ function dd_verify_customer_ajax() {
             'email' => $email,
             'flag' => 'verified',
             'notes' => 'Manually verified from order #' . $order_id,
-            'created_at' => current_time('mysql')
+            'created_at' => current_time('mysql'),
+            'admin_user' => $admin_user,
+            'trigger_type' => 'manual'
         ));
     }
 
@@ -1603,7 +1658,9 @@ function dd_verify_customer_ajax() {
             'customer_name' => $name,
             'flag' => 'verified',
             'notes' => 'Manually verified from order #' . $order_id,
-            'created_at' => current_time('mysql')
+            'created_at' => current_time('mysql'),
+            'admin_user' => $admin_user,
+            'trigger_type' => 'manual'
         ));
     }
 
@@ -1614,7 +1671,9 @@ function dd_verify_customer_ajax() {
             'ip_address' => $ip_address,
             'flag' => 'verified',
             'notes' => 'Manually verified from order #' . $order_id,
-            'created_at' => current_time('mysql')
+            'created_at' => current_time('mysql'),
+            'admin_user' => $admin_user,
+            'trigger_type' => 'manual'
         ));
     }
 

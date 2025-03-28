@@ -44,10 +44,12 @@ class Listings_Table extends WP_List_Table {
     $screen = get_current_screen();
     $type = $this->get_entry_type();
     $table_columns = array(
-      'entry'       => __( $type, 'dd-fraud' ),
-      'flag'        => __( 'Flag', 'dd-fraud' ),
-      'notes'       => __( 'Notes', 'dd-fraud' ),
-      'created_at'  => __( 'Created At', 'dd-fraud' ),
+      'entry'        => __( $type, 'dd-fraud' ),
+      'flag'         => __( 'Flag', 'dd-fraud' ),
+      'notes'        => __( 'Notes', 'dd-fraud' ),
+      'admin_user'   => __( 'Added By', 'dd-fraud' ),
+      'trigger_type' => __( 'Trigger Type', 'dd-fraud' ),
+      'created_at'   => __( 'Created At', 'dd-fraud' ),
     );
 
     return $table_columns;	
@@ -62,7 +64,7 @@ class Listings_Table extends WP_List_Table {
       case 'ID':
         return $item[$column_name];
       default:
-        return $item[$column_name];
+        return $item[$column_name] ?? '';
     }
   }
 
@@ -93,36 +95,44 @@ class Listings_Table extends WP_List_Table {
   
 
   public function fetch_table_data() {
-
     $type = $this->get_entry_type();
     $flag = ( isset($_REQUEST['flag']) ? $_REQUEST['flag'] : 'all');
     
     global $wpdb;
 
-    $table_name = $wpdb->prefix . 'dd_fraud_' . $type;		
+    $table_name = $wpdb->prefix . 'dd_fraud_' . $type;
     $orderby = ( isset( $_GET['orderby'] ) ) ? esc_sql( $_GET['orderby'] ) : 'id';
     $order = ( isset( $_GET['order'] ) ) ? esc_sql( $_GET['order'] ) : 'ASC';
 
-		$current_page = $this->get_pagenum();
+    $current_page = $this->get_pagenum();
     $entries_per_page = $this->get_items_per_page( 'entries_per_page' );
 
-		if ( $current_page > 1) {
-			$offset = $entries_per_page * ( $current_page - 1 );
-		} else {
-			$offset = 0;
-		}
+    if ( $current_page > 1) {
+        $offset = $entries_per_page * ( $current_page - 1 );
+    } else {
+        $offset = 0;
+    }
 
     $search = '';
+    
+    // Use ip_address column name for IP page, otherwise use the type as column name
+    $column_name = ($type === 'ip') ? 'ip_address' : $type;
 
-		if ( ! empty( $_REQUEST['s'] ) ) 
-    {
-			$search = "AND $type LIKE '%" . esc_sql( $wpdb->esc_like( wc_clean( wp_unslash( $_REQUEST['s'] ) ) ) ) . "%' ";
-		}
+    if ( ! empty( $_REQUEST['s'] ) ) {
+        $search = "AND $column_name LIKE '%" . esc_sql( $wpdb->esc_like( wc_clean( wp_unslash( $_REQUEST['s'] ) ) ) ) . "%' ";
+    }
 
-    $sql = "SELECT ID, $type, flag, notes, created_at FROM $table_name WHERE ";
-    if ($flag !== "all")
-    {
-      $sql .= $wpdb->prepare("flag = %s AND", $flag);
+    // Select the correct column based on the page type
+    $sql = "SELECT ID, ";
+    if ($type === 'ip') {
+        $sql .= "ip_address as entry";
+    } else {
+        $sql .= "$type as entry";
+    }
+    $sql .= ", flag, notes, admin_user, trigger_type, created_at FROM $table_name WHERE ";
+    
+    if ($flag !== "all") {
+        $sql .= $wpdb->prepare("flag = %s AND", $flag);
     }
     $sql .= " 1 = 1 {$search} ORDER BY $orderby $order";
     $sql .= $wpdb->prepare(" LIMIT %d OFFSET %d;", $entries_per_page, $offset);
@@ -130,9 +140,8 @@ class Listings_Table extends WP_List_Table {
     $query_results = $wpdb->get_results( $sql, ARRAY_A  );
 
     $count_sql = "SELECT COUNT(id) FROM $table_name WHERE ";
-    if ($flag !== "all")
-    {
-      $count_sql .= $wpdb->prepare("flag = %s AND", $flag);
+    if ($flag !== "all") {
+        $count_sql .= $wpdb->prepare("flag = %s AND", $flag);
     }
 
     $count_sql .= " 1 = 1 {$search};";
@@ -182,45 +191,45 @@ class Listings_Table extends WP_List_Table {
   protected function get_sortable_columns() 
   {
     $type = $this->get_entry_type();
-    $sortable_columns = array (
-        'entry' => $type,
-        'flag' => 'flag',
-        'created_at' => 'created_at',
-      );
+    $sortable_columns = array(
+        'entry'        => $type,
+        'flag'         => 'flag',
+        'admin_user'   => 'admin_user',
+        'trigger_type' => 'trigger_type',
+        'created_at'   => 'created_at',
+    );
     return $sortable_columns;
   }
 
   protected function column_entry( $item )
   {
     $type = $this->get_entry_type();
-
-    $admin_page_url =  admin_url( 'admin.php?page=dd_fraud_' . $type );
+    $admin_page_url = admin_url( 'admin.php?page=dd_fraud_' . $type );
 
     $query_args_edit_entry = array(
-			'page'		=>  wp_unslash( $_REQUEST['page'] ),
-			'action'	=> 'edit_entry',
-      'type'    => $type,
-			'id'		=> absint( $item['ID']),
-      '_wpnonce'	=> wp_create_nonce( 'edit_dd_entry' ),
-		);
+        'page'      => wp_unslash( $_REQUEST['page'] ),
+        'action'    => 'edit_entry',
+        'type'      => $type,
+        'id'        => absint( $item['ID']),
+        '_wpnonce'  => wp_create_nonce( 'edit_dd_entry' ),
+    );
 
     $edit_entry_link = esc_url( add_query_arg( $query_args_edit_entry, $admin_page_url ) );
-
-    $actions['edit_entry'] = '<a href="' . $edit_entry_link . '">' . __( 'Edit Entry', 'dd-fraud') . '</a>';	
+    $actions['edit_entry'] = '<a href="' . $edit_entry_link . '">' . __( 'Edit Entry', 'dd-fraud') . '</a>';
 
     $query_args_delete_entry = array(
-			'page'		=>  wp_unslash( $_REQUEST['page'] ),
-			'action'	=> 'delete_entry',
-      'type'    => $type,
-			'id'		=> absint( $item['ID']),
-			'_wpnonce'	=> wp_create_nonce( 'delete_dd_entry' ),
-		);
+        'page'      => wp_unslash( $_REQUEST['page'] ),
+        'action'    => 'delete_entry',
+        'type'      => $type,
+        'id'        => absint( $item['ID']),
+        '_wpnonce'  => wp_create_nonce( 'delete_dd_entry' ),
+    );
 
     $delete_entry_link = esc_url( add_query_arg( $query_args_delete_entry, $admin_page_url ) );
-    $actions['delete_entry'] = '<span class="trash"><a href="' . $delete_entry_link . '">' . __( 'Delete', 'dd-fraud') . '</a></span>';	
+    $actions['delete_entry'] = '<span class="trash"><a href="' . $delete_entry_link . '">' . __( 'Delete', 'dd-fraud') . '</a></span>';
 
-    $row_value = sanitize_text_field($item[$type]);
-		return $row_value . $this->row_actions( $actions );
+    $row_value = sanitize_text_field($item['entry']);
+    return $row_value . $this->row_actions( $actions );
   }
 
   protected function column_notes ( $item )
@@ -300,5 +309,15 @@ class Listings_Table extends WP_List_Table {
     $views['verified'] = "<a href='{$verified_url}' {$class} >Verified <span class='count'>($verified_count)</span></a>";
 
     return $views;
+  }
+
+  protected function column_admin_user($item) {
+    return !empty($item['admin_user']) ? esc_html($item['admin_user']) : '—';
+  }
+
+  protected function column_trigger_type($item) {
+    $trigger_type = !empty($item['trigger_type']) ? $item['trigger_type'] : 'manual';
+    $class = $trigger_type === 'automatic' ? 'auto-trigger' : 'manual-trigger';
+    return sprintf('<span class="%s">%s</span>', esc_attr($class), esc_html(ucfirst($trigger_type)));
   }
 }
