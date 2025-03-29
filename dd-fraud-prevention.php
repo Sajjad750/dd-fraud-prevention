@@ -929,35 +929,39 @@ function dd_fraud_details_html($post) {
                 <?php endif; ?>
             </div>
 
-            <!-- Trigger Type -->
+            <!-- Trigger Type - Consolidated -->
             <div class="fraud-detail-card">
                 <h4>Trigger Type</h4>
                 <div class="fraud-detail-value">
-                    <?php echo esc_html($fraud_check_arr['bigo_id']['trigger_type'] ?? 'N/A'); ?>
-                </div>
-            </div>
+                    <?php
+                    $trigger_types = array();
+                    if (!empty($fraud_check_arr['bigo_id']['trigger_type'])) {
+                        $trigger_types['Bigo ID'] = $fraud_check_arr['bigo_id']['trigger_type'];
+                    }
+                    if (!empty($fraud_check_arr['email']['trigger_type'])) {
+                        $trigger_types['Email'] = $fraud_check_arr['email']['trigger_type'];
+                    }
+                    if (!empty($fraud_check_arr['customer_name']['trigger_type'])) {
+                        $trigger_types['Customer Name'] = $fraud_check_arr['customer_name']['trigger_type'];
+                    }
+                    if (!empty($fraud_check_arr['ip_address']['trigger_type'])) {
+                        $trigger_types['IP Address'] = $fraud_check_arr['ip_address']['trigger_type'];
+                    }
 
-            <!-- Email Trigger Type -->
-            <div class="fraud-detail-card">
-                <h4>Trigger Type</h4>
-                <div class="fraud-detail-value">
-                    <?php echo esc_html($fraud_check_arr['email']['trigger_type'] ?? 'N/A'); ?>
-                </div>
-            </div>
-
-            <!-- Customer Name Trigger Type -->
-            <div class="fraud-detail-card">
-                <h4>Trigger Type</h4>
-                <div class="fraud-detail-value">
-                    <?php echo esc_html($fraud_check_arr['customer_name']['trigger_type'] ?? 'N/A'); ?>
-                </div>
-            </div>
-
-            <!-- IP Address Trigger Type -->
-            <div class="fraud-detail-card">
-                <h4>Trigger Type</h4>
-                <div class="fraud-detail-value">
-                    <?php echo esc_html($fraud_check_arr['ip_address']['trigger_type'] ?? 'N/A'); ?>
+                    if (!empty($trigger_types)) {
+                        echo '<div class="trigger-type-details">';
+                        foreach ($trigger_types as $type => $trigger) {
+                            $class = $trigger === 'automatic' ? 'auto-trigger' : 'manual-trigger';
+                            echo '<div class="trigger-type-item">';
+                            echo '<span class="trigger-type-label">' . esc_html($type) . ':</span> ';
+                            echo '<span class="' . esc_attr($class) . '">' . esc_html(ucfirst($trigger)) . '</span>';
+                            echo '</div>';
+                        }
+                        echo '</div>';
+                    } else {
+                        echo 'N/A';
+                    }
+                    ?>
                 </div>
             </div>
 
