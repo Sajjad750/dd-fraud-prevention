@@ -968,7 +968,7 @@ function dd_fraud_details_html($post) {
         <!-- Discrepancies Section -->
         <?php if (!empty($discrepancies)): ?>
         <div class="fraud_section">
-            <h3>Discrepancies Found in Last <?php echo esc_htmSl(get_option('dd_fraud_order_limit', '100')); ?> Orders</h3>
+            <h3>Discrepancies Found in Last <?php echo esc_html(get_option('dd_fraud_order_limit', '100')); ?> Orders</h3>
             <div class="discrepancies_grid">
                 <?php if (!empty($discrepancies['emails'])): ?>
                 <div class="discrepancy_card">
