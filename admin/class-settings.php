@@ -95,9 +95,15 @@ class Settings {
     public function dd_fraud_register_settings() {
         add_option( 'dd_fraud_order_limit', 100 );
         add_option( 'dd_fraud_match_threshold', 70 );
+        add_option( 'dd_auto_refund_enabled', '0' );
+        add_option( 'dd_auto_refund_reason', 'Order blocked by fraud prevention system' );
+        add_option( 'dd_fraud_vpn_block', '1' );
 
         register_setting( 'dd_fraud_options_group', 'dd_fraud_order_limit', 'intval' );
         register_setting( 'dd_fraud_options_group', 'dd_fraud_match_threshold', 'intval' );
+        register_setting( 'dd_fraud_options_group', 'dd_auto_refund_enabled' );
+        register_setting( 'dd_fraud_options_group', 'dd_auto_refund_reason', 'sanitize_text_field' );
+        register_setting( 'dd_fraud_options_group', 'dd_fraud_vpn_block' );
     }
 
     public function redirect()

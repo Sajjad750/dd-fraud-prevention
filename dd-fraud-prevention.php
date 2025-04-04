@@ -1683,3 +1683,140 @@ function dd_verify_customer_ajax() {
 
     wp_send_json_success('Customer verified successfully');
 }
+
+/**
+ * Add auto-refund settings to the plugin
+ */
+function dd_add_auto_refund_settings() {
+    register_setting('dd_fraud_settings', 'dd_auto_refund_enabled');
+    register_setting('dd_fraud_settings', 'dd_auto_refund_reason');
+    
+    add_settings_field(
+        'dd_auto_refund_enabled',
+        'Enable Auto-Refund',
+        'dd_auto_refund_enabled_callback',
+        'dd_fraud_settings',
+        'dd_fraud_general_section'
+    );
+    
+    add_settings_field(
+        'dd_auto_refund_reason',
+        'Refund Reason',
+        'dd_auto_refund_reason_callback',
+        'dd_fraud_settings',
+        'dd_fraud_general_section'
+    );
+}
+add_action('admin_init', 'dd_add_auto_refund_settings');
+
+function dd_auto_refund_enabled_callback() {
+    $enabled = get_option('dd_auto_refund_enabled', '0');
+    echo '<input type="checkbox" name="dd_auto_refund_enabled" value="1" ' . checked(1, $enabled, false) . ' />';
+    echo '<p class="description">Automatically refund orders that are blocked by the fraud prevention system.</p>';
+}
+
+function dd_auto_refund_reason_callback() {
+    $reason = get_option('dd_auto_refund_reason', 'Order blocked by fraud prevention system');
+    echo '<input type="text" name="dd_auto_refund_reason" value="' . esc_attr($reason) . '" class="regular-text" />';
+    echo '<p class="description">The reason that will be shown to customers for the refund.</p>';
+}
+
+/**
+ * Handle auto-refund for blocked orders
+ */
+function dd_handle_auto_refund($order_id) {
+    $order = wc_get_order($order_id);
+    if (!$order) {
+        return;
+    }
+
+    // Only process if order is blocked
+    if ($order->get_status() !== 'blocked') {
+        return;
+    }
+
+    // Check if auto-refund is enabled
+    if (get_option('dd_auto_refund_enabled', '0') !== '1') {
+        return;
+    }
+
+    // Check if order was already refunded
+    if ($order->get_meta('_auto_refunded', true)) {
+        return;
+    }
+
+    try {
+        // Get the refund reason from settings
+        $refund_reason = get_option('dd_auto_refund_reason', 'Order blocked by fraud prevention system');
+        
+        // Process the refund
+        $refund = wc_create_refund(array(
+            'order_id' => $order_id,
+            'amount' => $order->get_total(),
+            'reason' => $refund_reason,
+            'refunded_by' => get_current_user_id(),
+            'refund_payment' => true,
+            'restock_items' => true,
+        ));
+
+        if (is_wp_error($refund)) {
+            throw new Exception($refund->get_error_message());
+        }
+
+        // Mark order as auto-refunded
+        $order->update_meta_data('_auto_refunded', true);
+        $order->save();
+
+        // Add note to order
+        $order->add_order_note(sprintf(
+            'Order automatically refunded due to fraud prevention. Refund ID: %s',
+            $refund->get_id()
+        ));
+
+    } catch (Exception $e) {
+        // Log the error
+        error_log('DD Fraud Prevention - Auto-refund failed for order ' . $order_id . ': ' . $e->getMessage());
+        
+        // Add note to order about failed refund
+        $order->add_order_note('Auto-refund failed: ' . $e->getMessage());
+    }
+}
+
+// Hook into order status changes to trigger auto-refund
+add_action('woocommerce_order_status_changed', 'dd_handle_auto_refund', 10, 3);
+
+// Add auto-refund status to order actions
+add_filter('woocommerce_order_actions', 'dd_add_auto_refund_order_action');
+function dd_add_auto_refund_order_action($actions) {
+    $actions['dd_manual_auto_refund'] = array(
+        'url'    => wp_nonce_url(admin_url('admin-post.php?action=dd_manual_auto_refund&order_id=' . get_the_ID()), 'dd-manual-auto-refund'),
+        'name'   => __('Process Auto-Refund', 'dd-fraud-prevention'),
+        'action' => 'dd-manual-auto-refund'
+    );
+    return $actions;
+}
+
+// Handle manual auto-refund action
+add_action('admin_post_dd_manual_auto_refund', 'dd_process_manual_auto_refund');
+function dd_process_manual_auto_refund() {
+    if (!current_user_can('edit_shop_orders')) {
+        wp_die(__('You do not have permission to do this.', 'dd-fraud-prevention'));
+    }
+
+    $order_id = isset($_GET['order_id']) ? absint($_GET['order_id']) : 0;
+    if (!$order_id) {
+        wp_die(__('No order ID provided.', 'dd-fraud-prevention'));
+    }
+
+    check_admin_referer('dd-manual-auto-refund');
+
+    // Check if auto-refund is enabled
+    if (get_option('dd_auto_refund_enabled', '0') !== '1') {
+        wp_die(__('Auto-refund is currently disabled. Please enable it in the settings first.', 'dd-fraud-prevention'));
+    }
+
+    dd_handle_auto_refund($order_id);
+
+    wp_redirect(wp_get_referer() ?: admin_url());
+    exit;
+}

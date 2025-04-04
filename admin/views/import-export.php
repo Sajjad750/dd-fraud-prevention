@@ -13,9 +13,27 @@ $admin_url = admin_url('admin-post.php');
         <input type="text" id="dd_fraud_order_limit" name="dd_fraud_order_limit" value="<?php echo get_option('dd_fraud_order_limit'); ?>" />
     </div>
     <div class="input_group">
-
         <label for="dd_fraud_match_threshold">% Match Threshold to Compare Entries<br>Default: 70 (100 is exact match)<br>e.g. Entries that match at least 70% percent will pass fraud check. </label>
         <input type="text" id="dd_fraud_match_threshold" name="dd_fraud_match_threshold" value="<?php echo get_option('dd_fraud_match_threshold'); ?>" />
+    </div>
+    <div class="input_group">
+        <label for="dd_auto_refund_enabled">Auto-Refund Settings</label>
+        <div style="margin-left: 20px;">
+            <input type="checkbox" id="dd_auto_refund_enabled" name="dd_auto_refund_enabled" value="1" <?php checked(1, get_option('dd_auto_refund_enabled', '0')); ?> />
+            <label for="dd_auto_refund_enabled">Enable automatic refunds for blocked orders</label>
+            <br><br>
+            <label for="dd_auto_refund_reason">Refund Reason:</label><br>
+            <input type="text" id="dd_auto_refund_reason" name="dd_auto_refund_reason" value="<?php echo esc_attr(get_option('dd_auto_refund_reason', 'Order blocked by fraud prevention system')); ?>" class="regular-text" />
+            <p class="description">This message will be displayed to customers when their order is automatically refunded.</p>
+        </div>
+    </div>
+    <div class="input_group">
+        <label for="dd_fraud_vpn_block">VPN Blocking</label>
+        <div style="margin-left: 20px;">
+            <input type="checkbox" id="dd_fraud_vpn_block" name="dd_fraud_vpn_block" value="1" <?php checked(1, get_option('dd_fraud_vpn_block', '1')); ?> />
+            <label for="dd_fraud_vpn_block">Enable VPN blocking</label>
+            <p class="description">When enabled, orders from known VPN IP addresses will be automatically blocked.</p>
+        </div>
     </div>
     <?php submit_button(); ?>
   </form>
