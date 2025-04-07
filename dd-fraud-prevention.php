@@ -107,6 +107,7 @@ function dd_validate_bigo_ids( $fields, $errors ){
 
 add_action( 'wp_footer', 'dd_add_bigo_id_checkout_validation_js');
 
+//old
 
 function dd_add_bigo_id_checkout_validation_js() {
  
@@ -183,7 +184,7 @@ function dd_scan_orders_for_fraud($order_id, $posted_data, $order)
 	// Check VPN if enabled
 	if (get_option('dd_fraud_vpn_block', '1') === '1' && dd_check_vpn_ip($ip_address)) {
 		$order->update_status('blocked');
-		$order->add_order_note('Order blocked: IP address detected as VPN');
+		dd_record_block_details($order, 'auto', 'IP address detected as VPN');
 		throw new Exception(__('Orders from VPN IP addresses are not allowed.', 'dd_fraud' ) );
 	}
 
@@ -513,6 +514,7 @@ function dd_run_manual_scan($order) {
  	else if ($is_blocked)
 	{
 		$order->update_status('blocked');
+		dd_record_block_details($order, 'auto', 'Blocked by fraud prevention system based on customer data');
 		$status = "blocked";
 	}
 	else if ($review_required && !$is_verified)
@@ -1485,6 +1487,7 @@ function dd_block_customer_ajax() {
 
     // Block the customer
     $order->update_status('blocked');
+    dd_record_block_details($order, 'manual', 'Blocked by administrator');
     
     // Add to blocked list
     global $wpdb;
@@ -1819,4 +1822,23 @@ function dd_process_manual_auto_refund() {
 
     wp_redirect(wp_get_referer() ?: admin_url());
     exit;
+}
+
+// Function to record block details
+function dd_record_block_details($order, $block_type, $reason) {
+    // Record block details in order meta
+    $order->update_meta_data('_dd_block_type', $block_type); // 'auto' or 'manual'
+    $order->update_meta_data('_dd_block_reason', $reason);
+    $order->update_meta_data('_dd_block_date', current_time('mysql'));
+    $order->update_meta_data('_dd_blocked_by', $block_type === 'manual' ? get_current_user_id() : 'system');
+    
+    // Add a note to the order
+    $note = sprintf(
+        'Order blocked: %s. Reason: %s',
+        $block_type === 'auto' ? 'Automatically by the fraud prevention system' : 'Manually by an administrator',
+        $reason
+    );
+    $order->add_order_note($note);
+    
+    $order->save();
 }

@@ -11,7 +11,7 @@ if (isset($_REQUEST['s']))
 
 <div class="wrap">
 
-    <h1>Fraud Prevention</h1>
+    <h1>Fraud Prevention System</h1>
     
     <h2>Search</h2>
     <form id="dd-fraud-search" class="dd-fraud-search" method="get">

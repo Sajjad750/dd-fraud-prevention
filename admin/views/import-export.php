@@ -3,7 +3,7 @@ $admin_url = admin_url('admin-post.php');
 ?>
 <div class="wrap">
 
-  <h1>Fraud Prevention</h1>
+  <h1>Fraud Prevention System</h1>
 
   <h2>Settings</h2>
   <form method="post" action="options.php">
