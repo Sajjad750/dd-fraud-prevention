@@ -256,8 +256,9 @@ function dd_get_customer_ip() {
 
 // Function to check if IP is from a VPN
 function dd_check_vpn_ip($ip_address) {
-    // First try IPQualityScore API
+    // Check using IPQualityScore API
     $api_result = dd_check_ipqualityscore($ip_address);
+    
     if ($api_result !== null) {
         // Log VPN detection
         $logger = new DD_Fraud_Logger();
@@ -265,58 +266,9 @@ function dd_check_vpn_ip($ip_address) {
         return $api_result;
     }
     
-    // Fallback to static IP ranges if API fails
-    $vpn_ranges = array(
-        '104.16.0.0/12',  // Cloudflare
-        '104.17.0.0/12',
-        '104.18.0.0/12',
-        '104.19.0.0/12',
-        '104.20.0.0/12',
-        '104.21.0.0/12',
-        '104.22.0.0/12',
-        '104.23.0.0/12',
-        '104.24.0.0/12',
-        '104.25.0.0/12',
-        '104.26.0.0/12',
-        '104.27.0.0/12',
-        '104.28.0.0/12',
-        '104.29.0.0/12',
-        '104.30.0.0/12',
-        '104.31.0.0/12',
-        '172.64.0.0/13',
-        '172.65.0.0/13',
-        '172.66.0.0/13',
-        '172.67.0.0/13',
-        '172.68.0.0/13',
-        '172.69.0.0/13',
-        '172.70.0.0/13',
-        '172.71.0.0/13',
-        '131.0.72.0/22',
-        '141.101.0.0/16',
-        '162.158.0.0/15',
-        '188.114.96.0/20',
-        '188.114.97.0/20',
-        '188.114.98.0/20',
-        '188.114.99.0/20',
-        '197.234.240.0/22',
-        '198.41.128.0/17',
-        '2400:cb00::/32',
-        '2606:4700::/32',
-        '2803:f800::/32',
-        '2405:b500::/32',
-        '2405:8100::/32',
-        '2a06:98c0::/29',
-        '2c0f:f248::/32'
-    );
-
-    foreach ($vpn_ranges as $range) {
-        if (dd_ip_in_range($ip_address, $range)) {
-            // Log VPN detection
-            $logger = new DD_Fraud_Logger();
-            $logger->log('VPN Detection', "IP address {$ip_address} detected as VPN using static IP range check (range: {$range})");
-            return true;
-        }
-    }
+    // If API check fails, log the failure and return false
+    $logger = new DD_Fraud_Logger();
+    $logger->log('VPN Detection', "IPQualityScore API check failed for IP address {$ip_address}");
     return false;
 }
 
@@ -330,6 +282,7 @@ function dd_check_ipqualityscore($ip_address) {
     // Get API key from WordPress options
     $api_key = get_option('dd_ipqualityscore_api_key');
     if (empty($api_key)) {
+        error_log('IPQualityScore API Error: No API key configured');
         return null;
     }
 
@@ -358,6 +311,7 @@ function dd_check_ipqualityscore($ip_address) {
     $data = json_decode($body, true);
 
     if (empty($data) || !isset($data['vpn'])) {
+        error_log('IPQualityScore API Error: Invalid response format');
         return null;
     }
 
