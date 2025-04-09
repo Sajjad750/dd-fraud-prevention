@@ -105,6 +105,16 @@ if (isset($_REQUEST['s']))
             </tr>
             <tr>
                 <th scope="row">
+                    <label for="dd_ipqualityscore_api_key">IPQualityScore API Key</label>
+                </th>
+                <td>
+                    <input type="text" id="dd_ipqualityscore_api_key" name="dd_ipqualityscore_api_key" 
+                           value="<?php echo esc_attr(get_option('dd_ipqualityscore_api_key', '')); ?>" class="regular-text">
+                    <p class="description">Enter your IPQualityScore API key for enhanced VPN detection. <a href="https://www.ipqualityscore.com/documentation/ip-address-validation-api/overview" target="_blank">Get an API key</a></p>
+                </td>
+            </tr>
+            <tr>
+                <th scope="row">
                     <label for="dd_fraud_past_orders_check">Past Orders Check</label>
                 </th>
                 <td>

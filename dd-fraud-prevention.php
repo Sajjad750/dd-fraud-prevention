@@ -249,7 +249,13 @@ function dd_get_customer_ip() {
 
 // Function to check if IP is from a VPN
 function dd_check_vpn_ip($ip_address) {
-    // List of known VPN IP ranges
+    // First try IPQualityScore API
+    $api_result = dd_check_ipqualityscore($ip_address);
+    if ($api_result !== null) {
+        return $api_result;
+    }
+    
+    // Fallback to static IP ranges if API fails
     $vpn_ranges = array(
         '104.16.0.0/12',  // Cloudflare
         '104.17.0.0/12',
@@ -299,6 +305,54 @@ function dd_check_vpn_ip($ip_address) {
         }
     }
     return false;
+}
+
+/**
+ * Check IP address using IPQualityScore API
+ * 
+ * @param string $ip_address The IP address to check
+ * @return bool|null Returns true if VPN detected, false if not, null if API check failed
+ */
+function dd_check_ipqualityscore($ip_address) {
+    // Get API key from WordPress options
+    $api_key = get_option('dd_ipqualityscore_api_key');
+    if (empty($api_key)) {
+        return null;
+    }
+
+    // Build API URL
+    $url = add_query_arg(
+        array(
+            'key' => $api_key,
+            'ip' => $ip_address,
+            'strictness' => 1, // 0-3, higher means stricter checking
+            'allow_public_access_points' => 'true',
+            'fast' => 'false',
+            'lighter_penalties' => 'false'
+        ),
+        'https://www.ipqualityscore.com/api/json/ip'
+    );
+
+    // Make API request
+    $response = wp_remote_get($url);
+    
+    if (is_wp_error($response)) {
+        error_log('IPQualityScore API Error: ' . $response->get_error_message());
+        return null;
+    }
+
+    $body = wp_remote_retrieve_body($response);
+    $data = json_decode($body, true);
+
+    if (empty($data) || !isset($data['vpn'])) {
+        return null;
+    }
+
+    // Log the full response for debugging
+    error_log('IPQualityScore API Response: ' . print_r($data, true));
+
+    // Check if IP is using VPN/proxy
+    return ($data['vpn'] === true || $data['proxy'] === true || $data['tor'] === true);
 }
 
 // Helper function to check if IP is in range

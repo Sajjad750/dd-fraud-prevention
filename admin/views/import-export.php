@@ -35,6 +35,14 @@ $admin_url = admin_url('admin-post.php');
             <p class="description">When enabled, orders from known VPN IP addresses will be automatically blocked.</p>
         </div>
     </div>
+    <div class="input_group">
+        <label for="dd_ipqualityscore_api_key">IPQualityScore API Key</label>
+        <div style="margin-left: 20px;">
+            <input type="text" id="dd_ipqualityscore_api_key" name="dd_ipqualityscore_api_key" 
+                   value="<?php echo esc_attr(get_option('dd_ipqualityscore_api_key', '')); ?>" class="regular-text" />
+            <p class="description">Enter your IPQualityScore API key for enhanced VPN detection. <a href="https://www.ipqualityscore.com/documentation/ip-address-validation-api/overview" target="_blank">Get an API key</a></p>
+        </div>
+    </div>
     <?php submit_button(); ?>
   </form>
 
