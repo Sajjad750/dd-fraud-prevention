@@ -34,6 +34,9 @@ foreach ( glob( plugin_dir_path( __FILE__ ) . 'admin/*.php' ) as $file ) {
 	include_once $file;
 }	
 
+// Include logger class
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-dd-fraud-logger.php';
+
 /**
  * Currently plugin version.
  * Start at version 1.0.0 and use SemVer - https://semver.org
@@ -86,6 +89,10 @@ function run_dd_fraud_prevention() {
 
 	$settings = new Settings( new Settings_Page(), new Import_Export_Page(), new Listings_Page(), new Add_Entry_Page() );
 	$settings->init();
+	
+	// Initialize logger
+	$logger = new DD_Fraud_Logger();
+	$logger->init();
 
 }
 
@@ -252,6 +259,9 @@ function dd_check_vpn_ip($ip_address) {
     // First try IPQualityScore API
     $api_result = dd_check_ipqualityscore($ip_address);
     if ($api_result !== null) {
+        // Log VPN detection
+        $logger = new DD_Fraud_Logger();
+        $logger->log('VPN Detection', "IP address {$ip_address} detected as VPN using IPQualityScore API");
         return $api_result;
     }
     
@@ -301,6 +311,9 @@ function dd_check_vpn_ip($ip_address) {
 
     foreach ($vpn_ranges as $range) {
         if (dd_ip_in_range($ip_address, $range)) {
+            // Log VPN detection
+            $logger = new DD_Fraud_Logger();
+            $logger->log('VPN Detection', "IP address {$ip_address} detected as VPN using static IP range check (range: {$range})");
             return true;
         }
     }
@@ -434,12 +447,21 @@ function dd_run_manual_scan($order) {
 			];
 
 			if ($ip_row['flag'] === "blocked") {
+				// Log IP blocked
+				$logger = new DD_Fraud_Logger();
+				$logger->log('Order Blocked', "Order #{$order_id} blocked due to blocked IP address: {$ip_address}");
 				return "blocked";
 			}
 			elseif ($ip_row['flag'] === "review") {
+				// Log IP review
+				$logger = new DD_Fraud_Logger();
+				$logger->log('Order Review', "Order #{$order_id} flagged for review due to IP address: {$ip_address}");
 				return "review";
 			}
 			elseif ($ip_row['flag'] === "verified") {
+				// Log IP verified
+				$logger = new DD_Fraud_Logger();
+				$logger->log('Order Verified', "Order #{$order_id} verified due to verified IP address: {$ip_address}");
 				return "verified";
 			}
 		} else {
@@ -564,23 +586,38 @@ function dd_run_manual_scan($order) {
 	if ($is_email_verifed)
 	{
 		$status = "verified-email";
+		// Log email verified
+		$logger = new DD_Fraud_Logger();
+		$logger->log('Order Verified', "Order #{$order_id} verified due to verified email: {$email}");
 	}
  	else if ($is_blocked)
 	{
 		$order->update_status('blocked');
 		dd_record_block_details($order, 'auto', 'Blocked by fraud prevention system based on customer data');
 		$status = "blocked";
+		// Log order blocked
+		$logger = new DD_Fraud_Logger();
+		$logger->log('Order Blocked', "Order #{$order_id} blocked by fraud prevention system based on customer data");
 	}
 	else if ($review_required && !$is_verified)
 	{
 		update_post_meta($order_id, '_review_required', 1 );
 		$status = "review_required";
+		// Log review required
+		$logger = new DD_Fraud_Logger();
+		$logger->log('Order Review', "Order #{$order_id} flagged for review");
 	}
 	else if ($is_verified) {
 		$status = "verified";
+		// Log order verified
+		$logger = new DD_Fraud_Logger();
+		$logger->log('Order Verified', "Order #{$order_id} verified");
 	}
 	else {
 		$status = "processing";
+		// Log order processing
+		$logger = new DD_Fraud_Logger();
+		$logger->log('Order Processing', "Order #{$order_id} proceeding to automatic scan");
 	}
 
 	if (!empty($order_check_arr))
@@ -1470,6 +1507,19 @@ function dd_add_entry()
 	);
 
 	$added = $wpdb->get_results($sql);
+
+	// Log the manual entry
+	$logger = new DD_Fraud_Logger();
+	$logger->log(
+		'Manual Entry Added',
+		sprintf(
+			'Added %s entry: %s with flag: %s. Notes: %s',
+			$type,
+			$entry,
+			$_POST['flag'],
+			$notes
+		)
+	);
 
 	wp_safe_redirect( esc_url_raw( add_query_arg( array( 'added' => $added ), admin_url( 'admin.php?page=dd_fraud_' . $type ) ) ) );
 	exit();

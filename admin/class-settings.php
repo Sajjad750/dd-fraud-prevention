@@ -106,6 +106,24 @@ class Settings {
         register_setting( 'dd_fraud_options_group', 'dd_auto_refund_reason', 'sanitize_text_field' );
         register_setting( 'dd_fraud_options_group', 'dd_fraud_vpn_block' );
         register_setting( 'dd_fraud_options_group', 'dd_ipqualityscore_api_key', 'sanitize_text_field' );
+        
+        // Add action to log settings changes
+        add_action('update_option', array($this, 'log_settings_change'), 10, 3);
+    }
+
+    /**
+     * Log settings changes
+     *
+     * @param string $option_name Option name
+     * @param mixed $old_value Old value
+     * @param mixed $new_value New value
+     */
+    public function log_settings_change($option_name, $old_value, $new_value) {
+        // Only log our plugin's settings
+        if (strpos($option_name, 'dd_fraud_') === 0 || $option_name === 'dd_ipqualityscore_api_key') {
+            $logger = new DD_Fraud_Logger();
+            $logger->log('Settings Updated', "Setting '{$option_name}' changed from '{$old_value}' to '{$new_value}'");
+        }
     }
 
     public function redirect()
