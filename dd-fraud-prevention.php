@@ -983,17 +983,37 @@ function dd_fraud_details_html($post) {
                 <div class="fraud-detail-value">
                     <?php
                     $trigger_types = array();
-                    if (!empty($fraud_check_arr['bigo_id']['trigger_type'])) {
-                        $trigger_types['Bigo ID'] = $fraud_check_arr['bigo_id']['trigger_type'];
+                    
+                    // Check for trigger types in fraud check data
+                    if (!empty($fraud_check_arr)) {
+                        foreach ($fraud_check_arr as $key => $data) {
+                            if (isset($data['trigger_type'])) {
+                                $trigger_types[$key] = $data['trigger_type'];
+                            } else {
+                                // Default to manual if not specified
+                                $trigger_types[$key] = 'manual';
+                            }
+                        }
                     }
-                    if (!empty($fraud_check_arr['email']['trigger_type'])) {
-                        $trigger_types['Email'] = $fraud_check_arr['email']['trigger_type'];
-                    }
-                    if (!empty($fraud_check_arr['customer_name']['trigger_type'])) {
-                        $trigger_types['Customer Name'] = $fraud_check_arr['customer_name']['trigger_type'];
-                    }
-                    if (!empty($fraud_check_arr['ip_address']['trigger_type'])) {
-                        $trigger_types['IP Address'] = $fraud_check_arr['ip_address']['trigger_type'];
+                    
+                    // If no trigger types found in fraud check, check individual flags
+                    if (empty($trigger_types)) {
+                        if (!empty($fraud_check_arr['bigo_id'])) {
+                            $trigger_types['Bigo ID'] = isset($fraud_check_arr['bigo_id']['trigger_type']) ? 
+                                $fraud_check_arr['bigo_id']['trigger_type'] : 'manual';
+                        }
+                        if (!empty($fraud_check_arr['email'])) {
+                            $trigger_types['Email'] = isset($fraud_check_arr['email']['trigger_type']) ? 
+                                $fraud_check_arr['email']['trigger_type'] : 'manual';
+                        }
+                        if (!empty($fraud_check_arr['customer_name'])) {
+                            $trigger_types['Customer Name'] = isset($fraud_check_arr['customer_name']['trigger_type']) ? 
+                                $fraud_check_arr['customer_name']['trigger_type'] : 'manual';
+                        }
+                        if (!empty($fraud_check_arr['ip_address'])) {
+                            $trigger_types['IP Address'] = isset($fraud_check_arr['ip_address']['trigger_type']) ? 
+                                $fraud_check_arr['ip_address']['trigger_type'] : 'manual';
+                        }
                     }
 
                     if (!empty($trigger_types)) {
@@ -1007,7 +1027,25 @@ function dd_fraud_details_html($post) {
                         }
                         echo '</div>';
                     } else {
-                        echo 'N/A';
+                        // If still no trigger types found, show default values
+                        echo '<div class="trigger-type-details">';
+                        echo '<div class="trigger-type-item">';
+                        echo '<span class="trigger-type-label">Bigo ID:</span> ';
+                        echo '<span class="manual-trigger">Manual</span>';
+                        echo '</div>';
+                        echo '<div class="trigger-type-item">';
+                        echo '<span class="trigger-type-label">Email:</span> ';
+                        echo '<span class="manual-trigger">Manual</span>';
+                        echo '</div>';
+                        echo '<div class="trigger-type-item">';
+                        echo '<span class="trigger-type-label">Customer Name:</span> ';
+                        echo '<span class="manual-trigger">Manual</span>';
+                        echo '</div>';
+                        echo '<div class="trigger-type-item">';
+                        echo '<span class="trigger-type-label">IP Address:</span> ';
+                        echo '<span class="manual-trigger">Manual</span>';
+                        echo '</div>';
+                        echo '</div>';
                     }
                     ?>
                 </div>
