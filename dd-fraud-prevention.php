@@ -866,6 +866,7 @@ function dd_fraud_details_html($post) {
     // Get flagged items
     $flagged_bigo_ids = $order->get_meta('_flagged_bigo_ids');
     $flagged_emails = $order->get_meta('_flagged_emails');
+    $flagged_ips = $order->get_meta('_flagged_ips');
 
     // Get current order status for action buttons
     $current_status = $order->get_status();
@@ -1012,8 +1013,10 @@ function dd_fraud_details_html($post) {
                 </div>
             </div>
 
-        <!-- Discrepancies Section -->
-        <?php if (!empty($discrepancies)): ?>
+    </div>
+    <div class="">
+            <!-- Discrepancies Section -->
+            <?php if (!empty($discrepancies)): ?>
         <div class="fraud_section">
             <h3>Discrepancies Found in Last <?php echo esc_html(get_option('dd_fraud_order_limit', '100')); ?> Orders</h3>
             <div class="discrepancies_grid">
@@ -1052,23 +1055,93 @@ function dd_fraud_details_html($post) {
             </div>
         </div>
         <?php endif; ?>
-  
+      <br>
         <!-- Flagged Items -->
-        <?php if (!empty($flagged_bigo_ids) || !empty($flagged_emails)): ?>
+        <?php if (!empty($flagged_bigo_ids) || !empty($flagged_emails) || !empty($flagged_ips)): ?>
         <div class="fraud_section">
             <h3>Flagged Items</h3>
-            <?php if (!empty($flagged_bigo_ids)): ?>
-            <div class="flagged_item">
-                <h4>Multiple Bigo IDs Found</h4>
-                <p><?php echo esc_html($flagged_bigo_ids); ?></p>
+            <div class="flagged_items_table_container">
+                <table class="flagged_items_table">
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Current Value</th>
+                            <th>Previous Values</th>
+                            <th>Issue</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (!empty($flagged_bigo_ids)): 
+                            $bigo_ids = explode(', ', $flagged_bigo_ids);
+                            $current_bigo_id = $bigo_ids[0];
+                            $previous_bigo_ids = array_slice($bigo_ids, 1);
+                        ?>
+                        <tr>
+                            <td>Bigo ID</td>
+                            <td><?php echo esc_html($current_bigo_id); ?></td>
+                            <td>
+                                <?php if (!empty($previous_bigo_ids)): ?>
+                                    <ul class="previous-values-list">
+                                        <?php foreach ($previous_bigo_ids as $previous_id): ?>
+                                            <li><?php echo esc_html($previous_id); ?></li>
+                                        <?php endforeach; ?>
+                                    </ul>
+                                <?php else: ?>
+                                    <span class="no-previous-values">None</span>
+                                <?php endif; ?>
+                            </td>
+                            <td>Multiple Bigo IDs used across orders</td>
+                        </tr>
+                        <?php endif; ?>
+                        
+                        <?php if (!empty($flagged_emails)): 
+                            $emails = explode(', ', $flagged_emails);
+                            $current_email = $emails[0];
+                            $previous_emails = array_slice($emails, 1);
+                        ?>
+                        <tr>
+                            <td>Email</td>
+                            <td><?php echo esc_html($current_email); ?></td>
+                            <td>
+                                <?php if (!empty($previous_emails)): ?>
+                                    <ul class="previous-values-list">
+                                        <?php foreach ($previous_emails as $previous_email): ?>
+                                            <li><?php echo esc_html($previous_email); ?></li>
+                                        <?php endforeach; ?>
+                                    </ul>
+                                <?php else: ?>
+                                    <span class="no-previous-values">None</span>
+                                <?php endif; ?>
+                            </td>
+                            <td>Multiple emails used across orders</td>
+                        </tr>
+                        <?php endif; ?>
+
+                        <?php if (!empty($flagged_ips)): 
+                            $ips = explode(', ', $flagged_ips);
+                            $current_ip = $ips[0];
+                            $previous_ips = array_slice($ips, 1);
+                        ?>
+                        <tr>
+                            <td>IP Address</td>
+                            <td><?php echo esc_html($current_ip); ?></td>
+                            <td>
+                                <?php if (!empty($previous_ips)): ?>
+                                    <ul class="previous-values-list">
+                                        <?php foreach ($previous_ips as $previous_ip): ?>
+                                            <li><?php echo esc_html($previous_ip); ?></li>
+                                        <?php endforeach; ?>
+                                    </ul>
+                                <?php else: ?>
+                                    <span class="no-previous-values">None</span>
+                                <?php endif; ?>
+                            </td>
+                            <td>Multiple IP addresses used across orders</td>
+                        </tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
             </div>
-            <?php endif; ?>
-            <?php if (!empty($flagged_emails)): ?>
-            <div class="flagged_item">
-                <h4>Multiple Emails Found</h4>
-                <p><?php echo esc_html($flagged_emails); ?></p>
-            </div>
-            <?php endif; ?>
         </div>
         <?php endif; ?>
     </div>
@@ -1240,17 +1313,81 @@ function dd_fraud_details_html($post) {
         color: #666;
     }
 
-    .flagged_item {
+    .flagged_items_table_container {
+        overflow-x: auto;
+        margin-top: 15px;
+    }
+
+    .flagged_items_table {
+        width: 100%;
+        border-collapse: collapse;
         background: #fff;
-        padding: 15px;
-        margin: 10px 0;
         border-radius: 4px;
         box-shadow: 0 1px 2px rgba(0,0,0,0.05);
     }
 
-    .flagged_item h4 {
-        margin: 0 0 10px 0;
+    .flagged_items_table th,
+    .flagged_items_table td {
+        padding: 12px 15px;
+        text-align: left;
+        border-bottom: 1px solid #e0e0e0;
+    }
+
+    .flagged_items_table th {
+        background-color: #f8f9fa;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .flagged_items_table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .flagged_items_table tr:hover {
+        background-color: #f5f5f5;
+    }
+
+    .flagged_items_table td:nth-child(1) {
+        font-weight: 600;
+        color: #333;
+    }
+
+    .flagged_items_table td:nth-child(2) {
+        font-weight: 500;
+    }
+
+    .flagged_items_table td:nth-child(4) {
+        color: #d32f2f;
+        font-style: italic;
+    }
+
+    .previous-values-list {
+        margin: 0;
+        padding-left: 20px;
+        list-style-type: disc;
+    }
+
+    .previous-values-list li {
+        margin: 3px 0;
         color: #666;
+    }
+
+    .no-previous-values {
+        color: #999;
+        font-style: italic;
+    }
+
+    .fraud_section {
+        margin-top: 20px;
+        display: block;
+        width: 100%;
+        clear: both;
+    }
+
+    .fraud_section h3 {
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #e0e0e0;
     }
     </style>
 
