@@ -126,7 +126,64 @@ function dd_add_bigo_id_checkout_validation_js() {
 	?>
 	<script>
 	jQuery(function($){
-		// Bigo ID inputs need to match
+		// Create user info display container
+		$('<div id="bigo-user-info" style="display:none; margin-top:10px; padding:10px; border:1px solid #ddd; border-radius:4px;"></div>').insertAfter('#billing_bigo_id_field');
+		
+		// Handle Bigo ID blur event
+		$('#billing_bigo_id').on('blur', function() {
+			var bigoId = $(this).val();
+			if (!bigoId) {
+				$('#bigo-user-info').hide();
+				return;
+			}
+			
+			// Show loading indicator
+			$('#bigo-user-info').html('<p>Loading user information...</p>').show();
+			
+			// Make AJAX request to get user info
+			$.ajax({
+				url: '<?php echo admin_url('admin-ajax.php'); ?>',
+				type: 'POST',
+				data: {
+					action: 'dd_get_bigo_user_info',
+					bigo_id: bigoId,
+					nonce: '<?php echo wp_create_nonce('dd_bigo_user_info_nonce'); ?>'
+				},
+				success: function(response) {
+					if (response.success) {
+						var userInfo = response.data;
+						var html = '<div style="display:flex; align-items:center;">';
+						
+						if (userInfo.profile_pic) {
+							html += '<img src="' + userInfo.profile_pic + '" alt="Profile Picture" style="width:50px; height:50px; border-radius:50%; margin-right:10px;">';
+						}
+						
+						html += '<div>';
+						html += '<p style="margin:0; font-weight:bold;">' + userInfo.nickname + '</p>';
+						html += '<p style="margin:0; color:#666;">ID: ' + bigoId + '</p>';
+						html += '</div>';
+						html += '</div>';
+						
+						$('#bigo-user-info').html(html);
+						
+						// Set hidden fields for order meta
+						$('#billing_bigo_nickname').val(userInfo.nickname);
+						$('#billing_bigo_profile_pic').val(userInfo.profile_pic);
+					} else {
+						$('#bigo-user-info').html('<p style="color:red;">' + response.data + '</p>');
+						$('#billing_bigo_nickname').val('');
+						$('#billing_bigo_profile_pic').val('');
+					}
+				},
+				error: function() {
+					$('#bigo-user-info').html('<p style="color:red;">Error connecting to server</p>');
+					$('#billing_bigo_nickname').val('');
+					$('#billing_bigo_profile_pic').val('');
+				}
+			});
+		});
+
+		// Existing validation code
 		$( 'body' ).on( 'blur change', '#billing_confirm_bigo_id', function(){
 			const wrapper = $(this).closest( '.form-row' );
 			let bigoId = $('#billing_bigo_id').val();
@@ -146,7 +203,6 @@ function dd_add_bigo_id_checkout_validation_js() {
 			}
 		});
 
-		// Bigo ID can't contain spaces
 		$( 'body' ).on( 'blur change', '#billing_bigo_id', function(){
 			const wrapper = $(this).closest( '.form-row' );
 			const val = $(this).val();
@@ -164,7 +220,7 @@ function dd_add_bigo_id_checkout_validation_js() {
 				wrapper.removeClass( 'woocommerce-invalid' ); 
 				wrapper.find('.error-message').remove();
 			}
-    });
+		});
 	});
 	</script>
 	<?php
@@ -814,6 +870,8 @@ function dd_fraud_details_html($post) {
     $last_name = $order->get_billing_last_name();
     $ip_address = $order->get_meta('_customer_ip');
     $customer_name = $first_name . " " . $last_name;
+    $bigo_nickname = $order->get_meta('_billing_bigo_nickname');
+    $bigo_profile_pic = $order->get_meta('_billing_bigo_profile_pic');
 
     // Get fraud check data
     $fraud_check_string = $order->get_meta('_fraud_check');
@@ -1090,6 +1148,31 @@ function dd_fraud_details_html($post) {
                     </ul>
                 </div>
                 <?php endif; ?>
+            </div>
+        </div>
+        <?php endif; ?>
+
+        <!-- Bigo User Profile Section -->
+        <?php if ($bigo_id): ?>
+        <div class="fraud_section">
+            <h3>Bigo User Profile</h3>
+            <div class="bigo_profile_card">
+                <div class="bigo_profile_pic">
+                    <?php if ($bigo_profile_pic): ?>
+                        <img src="<?php echo esc_url($bigo_profile_pic); ?>" alt="Bigo Profile Picture" style="width:100px; height:100px; border-radius:50%; object-fit:cover;">
+                    <?php else: ?>
+                        <div class="no_profile_pic" style="width:100px; height:100px; border-radius:50%; background:#f0f0f0; display:flex; align-items:center; justify-content:center;">
+                            <span style="color:#666;">No Image</span>
+                        </div>
+                    <?php endif; ?>
+                </div>
+                <div class="bigo_profile_info">
+                    <h4>Bigo ID: <?php echo esc_html($bigo_id); ?></h4>
+                    <?php if ($bigo_nickname): ?>
+                    <p><strong>Nickname:</strong> <?php echo esc_html($bigo_nickname); ?></p>
+                    <?php endif; ?>
+                    <p><a href="https://www.bigo.tv/user/<?php echo esc_attr($bigo_id); ?>" target="_blank" class="button button-secondary">View Profile on Bigo</a></p>
+                </div>
             </div>
         </div>
         <?php endif; ?>
@@ -1426,6 +1509,43 @@ function dd_fraud_details_html($post) {
         margin-bottom: 15px;
         padding-bottom: 10px;
         border-bottom: 1px solid #e0e0e0;
+    }
+
+    .bigo_profile_card {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        padding: 20px;
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        margin-top: 15px;
+    }
+
+    .bigo_profile_pic {
+        flex-shrink: 0;
+    }
+
+    .bigo_profile_info {
+        flex: 1;
+    }
+
+    .bigo_profile_info h4 {
+        margin: 0 0 10px 0;
+        color: #333;
+    }
+
+    .bigo_profile_info p {
+        margin: 5px 0;
+        color: #666;
+    }
+
+    .bigo_profile_info .button {
+        margin-top: 10px;
+    }
+
+    .no_profile_pic {
+        border: 1px solid #ddd;
     }
     </style>
 
@@ -2074,4 +2194,163 @@ function dd_record_block_details($order, $block_type, $reason) {
     $order->add_order_note($note);
     
     $order->save();
+}
+
+// Add Bigo user info fetching function
+function dd_get_bigo_user_info($bigo_id) {
+    // Bigo User URL
+    $url = "https://www.bigo.tv/user/" . $bigo_id;
+
+    // Initialize cURL session
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
+    curl_setopt($ch, CURLOPT_USERAGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36");
+
+    // Execute cURL request
+    $html_content = curl_exec($ch);
+
+    if(curl_errno($ch)) {
+        curl_close($ch);
+        return array('error' => 'Failed to fetch user information');
+    }
+
+    curl_close($ch);
+
+    if (empty($html_content)) {
+        return array('error' => 'No content returned');
+    }
+
+    // Load HTML content
+    $dom = new DOMDocument();
+    @$dom->loadHTML($html_content);
+    $xpath = new DOMXPath($dom);
+
+    // Find nickname and profile picture
+    $nickname = "";
+    $profile_pic = "";
+
+    // XPath for nickname
+    $nickname_elements = $xpath->query("//h1[@class='nickName']");
+    // XPath for profile picture
+    $profile_pic_elements = $xpath->query("//div[@class='img-preview']/img[@class='img']");
+
+    if ($nickname_elements->length > 0) {
+        $nickname = trim($nickname_elements->item(0)->textContent);
+    }
+
+    if ($profile_pic_elements->length > 0) {
+        $profile_pic = $profile_pic_elements->item(0)->getAttribute('src');
+    }
+
+    if ($nickname && $profile_pic) {
+        return array(
+            'success' => true,
+            'nickname' => $nickname,
+            'profile_pic' => $profile_pic
+        );
+    } else {
+        return array('error' => 'User information not found');
+    }
+}
+
+// Add AJAX handler for fetching Bigo user info
+add_action('wp_ajax_dd_get_bigo_user_info', 'dd_get_bigo_user_info_ajax');
+add_action('wp_ajax_nopriv_dd_get_bigo_user_info', 'dd_get_bigo_user_info_ajax');
+function dd_get_bigo_user_info_ajax() {
+    check_ajax_referer('dd_bigo_user_info_nonce', 'nonce');
+    
+    $bigo_id = isset($_POST['bigo_id']) ? sanitize_text_field($_POST['bigo_id']) : '';
+    
+    if (empty($bigo_id)) {
+        wp_send_json_error('Bigo ID is required');
+    }
+    
+    $user_info = dd_get_bigo_user_info($bigo_id);
+    
+    if (isset($user_info['error'])) {
+        wp_send_json_error($user_info['error']);
+    } else {
+        wp_send_json_success($user_info);
+    }
+}
+
+// Add hidden fields for storing Bigo user info
+add_action('woocommerce_after_checkout_form', 'dd_add_bigo_hidden_fields');
+function dd_add_bigo_hidden_fields() {
+    echo '<input type="hidden" id="billing_bigo_nickname" name="billing_bigo_nickname" value="">';
+    echo '<input type="hidden" id="billing_bigo_profile_pic" name="billing_bigo_profile_pic" value="">';
+}
+
+// Save Bigo user info to order meta
+add_action('woocommerce_checkout_update_order_meta', 'dd_save_bigo_user_info');
+function dd_save_bigo_user_info($order_id) {
+    if (!empty($_POST['billing_bigo_nickname'])) {
+        update_post_meta($order_id, '_billing_bigo_nickname', sanitize_text_field($_POST['billing_bigo_nickname']));
+    }
+    
+    if (!empty($_POST['billing_bigo_profile_pic'])) {
+        update_post_meta($order_id, '_billing_bigo_profile_pic', esc_url_raw($_POST['billing_bigo_profile_pic']));
+    }
+}
+
+// Add Bigo user info to order details
+add_action('woocommerce_admin_order_data_after_billing_address', 'dd_display_bigo_user_info');
+function dd_display_bigo_user_info($order) {
+    $bigo_id = get_post_meta($order->get_id(), '_billing_bigo_id', true);
+    $nickname = get_post_meta($order->get_id(), '_billing_bigo_nickname', true);
+    $profile_pic = get_post_meta($order->get_id(), '_billing_bigo_profile_pic', true);
+    
+    if ($bigo_id) {
+        echo '<h3>' . __('Bigo User Information', 'dd-fraud-prevention') . '</h3>';
+        echo '<p><strong>' . __('Bigo ID:', 'dd-fraud-prevention') . '</strong> ' . esc_html($bigo_id) . '</p>';
+        
+        if ($nickname) {
+            echo '<p><strong>' . __('Nickname:', 'dd-fraud-prevention') . '</strong> ' . esc_html($nickname) . '</p>';
+        }
+        
+        if ($profile_pic) {
+            echo '<p><strong>' . __('Profile Picture:', 'dd-fraud-prevention') . '</strong></p>';
+            echo '<img src="' . esc_url($profile_pic) . '" alt="Profile Picture" style="max-width:100px; border-radius:50%;">';
+        }
+    }
+}
+
+// Add Bigo user info to order emails
+add_action('woocommerce_email_after_order_table', 'dd_add_bigo_user_info_to_emails', 10, 4);
+function dd_add_bigo_user_info_to_emails($order, $is_admin_email, $plain_text, $email) {
+    $bigo_id = get_post_meta($order->get_id(), '_billing_bigo_id', true);
+    $nickname = get_post_meta($order->get_id(), '_billing_bigo_nickname', true);
+    $profile_pic = get_post_meta($order->get_id(), '_billing_bigo_profile_pic', true);
+    
+    if ($bigo_id) {
+        if ($plain_text) {
+            echo "\n\n==========\n\n";
+            echo __('Bigo User Information', 'dd-fraud-prevention') . "\n\n";
+            echo __('Bigo ID:', 'dd-fraud-prevention') . ' ' . esc_html($bigo_id) . "\n";
+            
+            if ($nickname) {
+                echo __('Nickname:', 'dd-fraud-prevention') . ' ' . esc_html($nickname) . "\n";
+            }
+            
+            if ($profile_pic) {
+                echo __('Profile Picture URL:', 'dd-fraud-prevention') . ' ' . esc_url($profile_pic) . "\n";
+            }
+            
+            echo "\n==========\n\n";
+        } else {
+            echo '<h2>' . __('Bigo User Information', 'dd-fraud-prevention') . '</h2>';
+            echo '<p><strong>' . __('Bigo ID:', 'dd-fraud-prevention') . '</strong> ' . esc_html($bigo_id) . '</p>';
+            
+            if ($nickname) {
+                echo '<p><strong>' . __('Nickname:', 'dd-fraud-prevention') . '</strong> ' . esc_html($nickname) . '</p>';
+            }
+            
+            if ($profile_pic) {
+                echo '<p><strong>' . __('Profile Picture:', 'dd-fraud-prevention') . '</strong></p>';
+                echo '<img src="' . esc_url($profile_pic) . '" alt="Profile Picture" style="max-width:100px; border-radius:50%;">';
+            }
+        }
+    }
 }
