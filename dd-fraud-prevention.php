@@ -150,8 +150,11 @@ function dd_add_bigo_id_checkout_validation_js() {
 					nonce: '<?php echo wp_create_nonce('dd_bigo_user_info_nonce'); ?>'
 				},
 				success: function(response) {
+					console.log('Bigo API Response:', response);
 					if (response.success) {
 						var userInfo = response.data;
+						console.log('Setting profile picture URL:', userInfo.profile_pic);
+						
 						var html = '<div style="display:flex; align-items:center;">';
 						
 						if (userInfo.profile_pic) {
@@ -169,13 +172,19 @@ function dd_add_bigo_id_checkout_validation_js() {
 						// Set hidden fields for order meta
 						$('#billing_bigo_nickname').val(userInfo.nickname);
 						$('#billing_bigo_profile_pic').val(userInfo.profile_pic);
+						
+						// Verify hidden fields are set
+						console.log('Nickname set:', $('#billing_bigo_nickname').val());
+						console.log('Profile picture set:', $('#billing_bigo_profile_pic').val());
 					} else {
+						console.error('Error in Bigo API response:', response.data);
 						$('#bigo-user-info').html('<p style="color:red;">' + response.data + '</p>');
 						$('#billing_bigo_nickname').val('');
 						$('#billing_bigo_profile_pic').val('');
 					}
 				},
-				error: function() {
+				error: function(xhr, status, error) {
+					console.error('AJAX Error:', error);
 					$('#bigo-user-info').html('<p style="color:red;">Error connecting to server</p>');
 					$('#billing_bigo_nickname').val('');
 					$('#billing_bigo_profile_pic').val('');
@@ -861,17 +870,30 @@ function dd_add_custom_box()
 add_action( 'add_meta_boxes', 'dd_add_custom_box' );
 
 function dd_fraud_details_html($post) {
+    error_log('DD Fraud Prevention - Starting to display order details for Order #' . $post->ID);
+    
     $order = wc_get_order($post->ID);
     
-    // Get order details
+    // Get order details with detailed logging
     $bigo_id = $order->get_meta('_billing_bigo_id');
+    error_log('DD Fraud Prevention - Retrieved Bigo ID: ' . $bigo_id);
+    
+    $bigo_nickname = $order->get_meta('_billing_bigo_nickname');
+    error_log('DD Fraud Prevention - Retrieved Bigo Nickname: ' . $bigo_nickname);
+    
+    $bigo_profile_pic = $order->get_meta('_billing_bigo_profile_pic');
+    error_log('DD Fraud Prevention - Retrieved Profile Picture URL: ' . $bigo_profile_pic);
+    
+    // Get all meta data for debugging
+    $all_meta = get_post_meta($post->ID);
+    error_log('DD Fraud Prevention - All order meta data: ' . print_r($all_meta, true));
+
+    // Rest of the order details...
     $email = $order->get_billing_email();
     $first_name = $order->get_billing_first_name();
     $last_name = $order->get_billing_last_name();
     $ip_address = $order->get_meta('_customer_ip');
     $customer_name = $first_name . " " . $last_name;
-    $bigo_nickname = $order->get_meta('_billing_bigo_nickname');
-    $bigo_profile_pic = $order->get_meta('_billing_bigo_profile_pic');
 
     // Get fraud check data
     $fraud_check_string = $order->get_meta('_fraud_check');
@@ -907,30 +929,23 @@ function dd_fraud_details_html($post) {
         $status_description = "This order has passed all fraud checks.";
     }
 
-    // Get discrepancies from previous orders
-    $discrepancies = array();
-    if (!empty($auto_fraud_check_arr)) {
-        if (!empty($auto_fraud_check_arr['emails'])) {
-            $discrepancies['emails'] = array_unique($auto_fraud_check_arr['emails']);
-        }
-        if (!empty($auto_fraud_check_arr['names'])) {
-            $discrepancies['names'] = array_unique($auto_fraud_check_arr['names']);
-        }
-        if (!empty($auto_fraud_check_arr['addresses'])) {
-            $discrepancies['addresses'] = array_unique($auto_fraud_check_arr['addresses']);
-        }
+    // Log the profile picture section HTML before output
+    $profile_pic_html = '';
+    if ($bigo_profile_pic) {
+        error_log('DD Fraud Prevention - Generating profile picture HTML with URL: ' . $bigo_profile_pic);
+        $profile_pic_html = '<img src="' . esc_url($bigo_profile_pic) . '" alt="Bigo Profile Picture" style="width:100px; height:100px; border-radius:50%; object-fit:cover;">';
+    } else {
+        error_log('DD Fraud Prevention - No profile picture URL found, displaying placeholder');
+        $profile_pic_html = '<div class="no_profile_pic" style="width:100px; height:100px; border-radius:50%; background:#f0f0f0; display:flex; align-items:center; justify-content:center;"><span style="color:#666;">No Image</span></div>';
     }
+    error_log('DD Fraud Prevention - Profile picture HTML to be displayed: ' . $profile_pic_html);
 
-    // Get flagged items
-    $flagged_bigo_ids = $order->get_meta('_flagged_bigo_ids');
-    $flagged_emails = $order->get_meta('_flagged_emails');
-    $flagged_ips = $order->get_meta('_flagged_ips');
-
-    // Get current order status for action buttons
-    $current_status = $order->get_status();
+    // Start output buffer to catch any potential errors
+    ob_start();
     ?>
-
     <div class="fraud-details-container">
+
+
         <!-- Status Banner -->
         <div class="fraud-status-banner <?php echo esc_attr($status_class); ?>">
             <div class="fraud-status-icon"><?php echo $status_icon; ?></div>
@@ -942,7 +957,7 @@ function dd_fraud_details_html($post) {
 
         <!-- Quick Actions -->
         <div class="fraud-quick-actions">
-            <?php if ($current_status !== 'blocked'): ?>
+            <?php if ($order->get_status() !== 'blocked'): ?>
                 <button type="button" class="fraud-quick-action-button block" data-order-id="<?php echo $order->get_id(); ?>">
                     <span class="dashicons dashicons-shield"></span>
                     Block Customer
@@ -964,7 +979,7 @@ function dd_fraud_details_html($post) {
                 </button>
             <?php endif; ?>
             
-            <?php if ($current_status === 'review-required'): ?>
+            <?php if ($order->get_status() === 'review-required'): ?>
                 <button type="button" class="fraud-quick-action-button verify" data-order-id="<?php echo $order->get_id(); ?>">
                     <span class="dashicons dashicons-yes-alt"></span>
                     Verify Customer
@@ -1110,162 +1125,159 @@ function dd_fraud_details_html($post) {
             </div>
 
     </div>
-    <div class="">
-            <!-- Discrepancies Section -->
-            <?php if (!empty($discrepancies)): ?>
-        <div class="fraud_section">
-            <h3>Discrepancies Found in Last <?php echo esc_html(get_option('dd_fraud_order_limit', '100')); ?> Orders</h3>
-            <div class="discrepancies_grid">
-                <?php if (!empty($discrepancies['emails'])): ?>
-                <div class="discrepancy_card">
-                    <h4>Different Emails Used</h4>
-                    <ul>
-                        <?php foreach($discrepancies['emails'] as $email): ?>
-                            <li><?php echo esc_html($email); ?></li>
-                        <?php endforeach; ?>
-                    </ul>
-                </div>
-                <?php endif; ?>
-
-                <?php if (!empty($discrepancies['names'])): ?>
-                <div class="discrepancy_card">
-                    <h4>Different Names Used</h4>
-                    <ul>
-                        <?php foreach($discrepancies['names'] as $name): ?>
-                            <li><?php echo esc_html($name); ?></li>
-                        <?php endforeach; ?>
-                    </ul>
-                </div>
-                <?php endif; ?>
-
-                <?php if (!empty($discrepancies['addresses'])): ?>
-                <div class="discrepancy_card">
-                    <h4>Different Addresses Used</h4>
-                    <ul>
-                        <?php foreach($discrepancies['addresses'] as $address): ?>
-                            <li><?php echo esc_html($address); ?></li>
-                        <?php endforeach; ?>
-                    </ul>
-                </div>
-                <?php endif; ?>
-            </div>
-        </div>
-        <?php endif; ?>
-
-        <!-- Bigo User Profile Section -->
-        <?php if ($bigo_id): ?>
-        <div class="fraud_section">
-            <h3>Bigo User Profile</h3>
-            <div class="bigo_profile_card">
-                <div class="bigo_profile_pic">
-                    <?php if ($bigo_profile_pic): ?>
-                        <img src="<?php echo esc_url($bigo_profile_pic); ?>" alt="Bigo Profile Picture" style="width:100px; height:100px; border-radius:50%; object-fit:cover;">
-                    <?php else: ?>
-                        <div class="no_profile_pic" style="width:100px; height:100px; border-radius:50%; background:#f0f0f0; display:flex; align-items:center; justify-content:center;">
-                            <span style="color:#666;">No Image</span>
+            <div class="">
+                    <!-- Discrepancies Section -->
+                    <?php if (!empty($discrepancies)): ?>
+                <div class="fraud_section">
+                    <h3>Discrepancies Found in Last <?php echo esc_html(get_option('dd_fraud_order_limit', '100')); ?> Orders</h3>
+                    <div class="discrepancies_grid">
+                        <?php if (!empty($discrepancies['emails'])): ?>
+                        <div class="discrepancy_card">
+                            <h4>Different Emails Used</h4>
+                            <ul>
+                                <?php foreach($discrepancies['emails'] as $email): ?>
+                                    <li><?php echo esc_html($email); ?></li>
+                                <?php endforeach; ?>
+                            </ul>
                         </div>
-                    <?php endif; ?>
-                </div>
-                <div class="bigo_profile_info">
-                    <h4>Bigo ID: <?php echo esc_html($bigo_id); ?></h4>
-                    <?php if ($bigo_nickname): ?>
-                    <p><strong>Nickname:</strong> <?php echo esc_html($bigo_nickname); ?></p>
-                    <?php endif; ?>
-                    <p><a href="https://www.bigo.tv/user/<?php echo esc_attr($bigo_id); ?>" target="_blank" class="button button-secondary">View Profile on Bigo</a></p>
-                </div>
-            </div>
-        </div>
-        <?php endif; ?>
-      <br>
-        <!-- Flagged Items -->
-        <?php if (!empty($flagged_bigo_ids) || !empty($flagged_emails) || !empty($flagged_ips)): ?>
-        <div class="fraud_section">
-            <h3>Flagged Items</h3>
-            <div class="flagged_items_table_container">
-                <table class="flagged_items_table">
-                    <thead>
-                        <tr>
-                            <th>Type</th>
-                            <th>Current Value</th>
-                            <th>Previous Values</th>
-                            <th>Issue</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if (!empty($flagged_bigo_ids)): 
-                            $bigo_ids = explode(', ', $flagged_bigo_ids);
-                            $current_bigo_id = $bigo_ids[0];
-                            $previous_bigo_ids = array_slice($bigo_ids, 1);
-                        ?>
-                        <tr>
-                            <td>Bigo ID</td>
-                            <td><?php echo esc_html($current_bigo_id); ?></td>
-                            <td>
-                                <?php if (!empty($previous_bigo_ids)): ?>
-                                    <ul class="previous-values-list">
-                                        <?php foreach ($previous_bigo_ids as $previous_id): ?>
-                                            <li><?php echo esc_html($previous_id); ?></li>
-                                        <?php endforeach; ?>
-                                    </ul>
-                                <?php else: ?>
-                                    <span class="no-previous-values">None</span>
-                                <?php endif; ?>
-                            </td>
-                            <td>Multiple Bigo IDs used across orders</td>
-                        </tr>
-                        <?php endif; ?>
-                        
-                        <?php if (!empty($flagged_emails)): 
-                            $emails = explode(', ', $flagged_emails);
-                            $current_email = $emails[0];
-                            $previous_emails = array_slice($emails, 1);
-                        ?>
-                        <tr>
-                            <td>Email</td>
-                            <td><?php echo esc_html($current_email); ?></td>
-                            <td>
-                                <?php if (!empty($previous_emails)): ?>
-                                    <ul class="previous-values-list">
-                                        <?php foreach ($previous_emails as $previous_email): ?>
-                                            <li><?php echo esc_html($previous_email); ?></li>
-                                        <?php endforeach; ?>
-                                    </ul>
-                                <?php else: ?>
-                                    <span class="no-previous-values">None</span>
-                                <?php endif; ?>
-                            </td>
-                            <td>Multiple emails used across orders</td>
-                        </tr>
                         <?php endif; ?>
 
-                        <?php if (!empty($flagged_ips)): 
-                            $ips = explode(', ', $flagged_ips);
-                            $current_ip = $ips[0];
-                            $previous_ips = array_slice($ips, 1);
-                        ?>
-                        <tr>
-                            <td>IP Address</td>
-                            <td><?php echo esc_html($current_ip); ?></td>
-                            <td>
-                                <?php if (!empty($previous_ips)): ?>
-                                    <ul class="previous-values-list">
-                                        <?php foreach ($previous_ips as $previous_ip): ?>
-                                            <li><?php echo esc_html($previous_ip); ?></li>
-                                        <?php endforeach; ?>
-                                    </ul>
-                                <?php else: ?>
-                                    <span class="no-previous-values">None</span>
-                                <?php endif; ?>
-                            </td>
-                            <td>Multiple IP addresses used across orders</td>
-                        </tr>
+                        <?php if (!empty($discrepancies['names'])): ?>
+                        <div class="discrepancy_card">
+                            <h4>Different Names Used</h4>
+                            <ul>
+                                <?php foreach($discrepancies['names'] as $name): ?>
+                                    <li><?php echo esc_html($name); ?></li>
+                                <?php endforeach; ?>
+                            </ul>
+                        </div>
                         <?php endif; ?>
-                    </tbody>
-                </table>
+
+                        <?php if (!empty($discrepancies['addresses'])): ?>
+                        <div class="discrepancy_card">
+                            <h4>Different Addresses Used</h4>
+                            <ul>
+                                <?php foreach($discrepancies['addresses'] as $address): ?>
+                                    <li><?php echo esc_html($address); ?></li>
+                                <?php endforeach; ?>
+                            </ul>
+                        </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
+
+                <!-- Flagged Items -->
+                <?php if (!empty($flagged_bigo_ids) || !empty($flagged_emails) || !empty($flagged_ips)): ?>
+                <div class="fraud_section">
+                    <h3>Flagged Items</h3>
+                    <div class="flagged_items_table_container">
+                        <table class="flagged_items_table">
+                            <thead>
+                                <tr>
+                                    <th>Type</th>
+                                    <th>Current Value</th>
+                                    <th>Previous Values</th>
+                                    <th>Issue</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php if (!empty($flagged_bigo_ids)): 
+                                    $bigo_ids = explode(', ', $flagged_bigo_ids);
+                                    $current_bigo_id = $bigo_ids[0];
+                                    $previous_bigo_ids = array_slice($bigo_ids, 1);
+                                ?>
+                                <tr>
+                                    <td>Bigo ID</td>
+                                    <td><?php echo esc_html($current_bigo_id); ?></td>
+                                    <td>
+                                        <?php if (!empty($previous_bigo_ids)): ?>
+                                            <ul class="previous-values-list">
+                                                <?php foreach ($previous_bigo_ids as $previous_id): ?>
+                                                    <li><?php echo esc_html($previous_id); ?></li>
+                                                <?php endforeach; ?>
+                                            </ul>
+                                        <?php else: ?>
+                                            <span class="no-previous-values">None</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>Multiple Bigo IDs used across orders</td>
+                                </tr>
+                                <?php endif; ?>
+                                
+                                <?php if (!empty($flagged_emails)): 
+                                    $emails = explode(', ', $flagged_emails);
+                                    $current_email = $emails[0];
+                                    $previous_emails = array_slice($emails, 1);
+                                ?>
+                                <tr>
+                                    <td>Email</td>
+                                    <td><?php echo esc_html($current_email); ?></td>
+                                    <td>
+                                        <?php if (!empty($previous_emails)): ?>
+                                            <ul class="previous-values-list">
+                                                <?php foreach ($previous_emails as $previous_email): ?>
+                                                    <li><?php echo esc_html($previous_email); ?></li>
+                                                <?php endforeach; ?>
+                                            </ul>
+                                        <?php else: ?>
+                                            <span class="no-previous-values">None</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>Multiple emails used across orders</td>
+                                </tr>
+                                <?php endif; ?>
+
+                                <?php if (!empty($flagged_ips)): 
+                                    $ips = explode(', ', $flagged_ips);
+                                    $current_ip = $ips[0];
+                                    $previous_ips = array_slice($ips, 1);
+                                ?>
+                                <tr>
+                                    <td>IP Address</td>
+                                    <td><?php echo esc_html($current_ip); ?></td>
+                                    <td>
+                                        <?php if (!empty($previous_ips)): ?>
+                                            <ul class="previous-values-list">
+                                                <?php foreach ($previous_ips as $previous_ip): ?>
+                                                    <li><?php echo esc_html($previous_ip); ?></li>
+                                                <?php endforeach; ?>
+                                            </ul>
+                                        <?php else: ?>
+                                            <span class="no-previous-values">None</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>Multiple IP addresses used across orders</td>
+                                </tr>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <?php endif; ?>
+
+                        <!-- Bigo User Profile Section -->
+                <?php if ($bigo_id): ?>
+                <div class="fraud_section">
+                    <h3>Bigo User Profile</h3>
+                    <div class="bigo_profile_card">
+                        <div class="bigo_profile_pic">
+                            <?php 
+                            echo $profile_pic_html;
+                            error_log('DD Fraud Prevention - Profile picture HTML output completed');
+                            ?>
+                        </div>
+                        <div class="bigo_profile_info">
+                            <h4>Bigo ID: <?php echo esc_html($bigo_id); ?></h4>
+                            <?php if ($bigo_nickname): ?>
+                            <p><strong>Nickname:</strong> <?php echo esc_html($bigo_nickname); ?></p>
+                            <?php endif; ?>
+                            <p><a href="https://www.bigo.tv/user/<?php echo esc_attr($bigo_id); ?>" target="_blank" class="button button-secondary">View Profile on Bigo</a></p>
+                        </div>
+                    </div>
+                </div>
+                <?php endif; ?>
             </div>
-        </div>
-        <?php endif; ?>
-    </div>
 
     <style>
     .fraud-details-container {
@@ -1619,6 +1631,9 @@ function dd_fraud_details_html($post) {
     });
     </script>
     <?php
+    $output = ob_get_clean();
+    error_log('DD Fraud Prevention - Order details display completed');
+    echo $output;
 }
 
 add_action( 'admin_post_dd_import', 'dd_import' );
@@ -2267,90 +2282,173 @@ function dd_get_bigo_user_info_ajax() {
         wp_send_json_error('Bigo ID is required');
     }
     
+    error_log('DD Fraud Prevention - Fetching Bigo user info for ID: ' . $bigo_id);
+    
     $user_info = dd_get_bigo_user_info($bigo_id);
     
+    error_log('DD Fraud Prevention - Bigo API Response: ' . print_r($user_info, true));
+    
     if (isset($user_info['error'])) {
+        error_log('DD Fraud Prevention - Error fetching user info: ' . $user_info['error']);
         wp_send_json_error($user_info['error']);
     } else {
+        error_log('DD Fraud Prevention - Successfully fetched user info with profile pic: ' . $user_info['profile_pic']);
         wp_send_json_success($user_info);
     }
 }
 
 // Add hidden fields for storing Bigo user info
-add_action('woocommerce_after_checkout_form', 'dd_add_bigo_hidden_fields');
-function dd_add_bigo_hidden_fields() {
-    echo '<input type="hidden" id="billing_bigo_nickname" name="billing_bigo_nickname" value="">';
-    echo '<input type="hidden" id="billing_bigo_profile_pic" name="billing_bigo_profile_pic" value="">';
+function dd_add_bigo_hidden_fields($checkout = null) {
+    // Add nonce for security
+    wp_nonce_field('dd_bigo_user_info', 'dd_bigo_user_info_nonce');
+    
+    echo '<div id="bigo-user-info" style="display:none; margin-top:10px;"></div>';
+    
+    if ($checkout instanceof WC_Checkout) {
+        woocommerce_form_field('billing_bigo_nickname', array(
+            'type' => 'hidden',
+            'class' => array('bigo-user-field'),
+        ), $checkout->get_value('billing_bigo_nickname'));
+        
+        woocommerce_form_field('billing_bigo_profile_pic', array(
+            'type' => 'hidden',
+            'class' => array('bigo-user-field'),
+        ), $checkout->get_value('billing_bigo_profile_pic'));
+    } else {
+        echo '<input type="hidden" id="billing_bigo_nickname" name="billing_bigo_nickname" value="" />';
+        echo '<input type="hidden" id="billing_bigo_profile_pic" name="billing_bigo_profile_pic" value="" />';
+    }
 }
 
-// Save Bigo user info to order meta
+// Update the action hook
+remove_action('woocommerce_after_checkout_form', 'dd_add_bigo_hidden_fields');
+add_action('woocommerce_after_checkout_billing_form', 'dd_add_bigo_hidden_fields');
+
+// Add JavaScript to handle Bigo user info
+add_action('wp_footer', 'dd_add_bigo_checkout_js');
+function dd_add_bigo_checkout_js() {
+    if (!is_checkout()) return;
+    ?>
+    <script type="text/javascript">
+    jQuery(function($) {
+        var bigoUserInfo = null;
+        
+        $('#billing_bigo_id').on('blur', function() {
+            var bigoId = $(this).val();
+            if (!bigoId) {
+                $('#bigo-user-info').hide();
+                clearBigoUserInfo();
+                return;
+            }
+            
+            $('#bigo-user-info').html('<p>Loading user information...</p>').show();
+            
+            $.ajax({
+                url: '<?php echo admin_url('admin-ajax.php'); ?>',
+                type: 'POST',
+                data: {
+                    action: 'dd_get_bigo_user_info',
+                    bigo_id: bigoId,
+                    nonce: '<?php echo wp_create_nonce('dd_bigo_user_info_nonce'); ?>'
+                },
+                success: function(response) {
+                    console.log('Bigo API Response:', response);
+                    
+                    if (response.success) {
+                        bigoUserInfo = response.data;
+                        updateBigoUserInfo(bigoUserInfo);
+                    } else {
+                        console.error('Error:', response.data);
+                        $('#bigo-user-info').html('<p style="color:red;">' + response.data + '</p>');
+                        clearBigoUserInfo();
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('AJAX Error:', error);
+                    $('#bigo-user-info').html('<p style="color:red;">Error connecting to server</p>');
+                    clearBigoUserInfo();
+                }
+            });
+        });
+
+        function updateBigoUserInfo(userInfo) {
+            var html = '<div style="display:flex; align-items:center;">';
+            if (userInfo.profile_pic) {
+                html += '<img src="' + userInfo.profile_pic + '" alt="Profile Picture" style="width:50px; height:50px; border-radius:50%; margin-right:10px;">';
+            }
+            html += '<div>';
+            html += '<p style="margin:0; font-weight:bold;">' + userInfo.nickname + '</p>';
+            html += '<p style="margin:0; color:#666;">ID: ' + $('#billing_bigo_id').val() + '</p>';
+            html += '</div></div>';
+            
+            $('#bigo-user-info').html(html).show();
+            
+            // Update hidden fields
+            $('input[name="billing_bigo_nickname"]').val(userInfo.nickname);
+            $('input[name="billing_bigo_profile_pic"]').val(userInfo.profile_pic);
+            
+            console.log('Updated hidden fields:', {
+                nickname: $('input[name="billing_bigo_nickname"]').val(),
+                profile_pic: $('input[name="billing_bigo_profile_pic"]').val()
+            });
+        }
+
+        function clearBigoUserInfo() {
+            bigoUserInfo = null;
+            $('input[name="billing_bigo_nickname"]').val('');
+            $('input[name="billing_bigo_profile_pic"]').val('');
+        }
+
+        // Ensure Bigo user info is set before form submission
+        $('form.checkout').on('checkout_place_order', function() {
+            if (bigoUserInfo) {
+                $('input[name="billing_bigo_nickname"]').val(bigoUserInfo.nickname);
+                $('input[name="billing_bigo_profile_pic"]').val(bigoUserInfo.profile_pic);
+                
+                console.log('Form submission - Bigo user info:', {
+                    nickname: $('input[name="billing_bigo_nickname"]').val(),
+                    profile_pic: $('input[name="billing_bigo_profile_pic"]').val()
+                });
+            }
+            return true;
+        });
+    });
+    </script>
+    <?php
+}
+
+// Save Bigo user info to order
 add_action('woocommerce_checkout_update_order_meta', 'dd_save_bigo_user_info');
 function dd_save_bigo_user_info($order_id) {
-    if (!empty($_POST['billing_bigo_nickname'])) {
-        update_post_meta($order_id, '_billing_bigo_nickname', sanitize_text_field($_POST['billing_bigo_nickname']));
-    }
+    error_log('DD Fraud Prevention - Starting to save Bigo user info for order: ' . $order_id);
+    error_log('DD Fraud Prevention - POST data: ' . print_r($_POST, true));
     
-    if (!empty($_POST['billing_bigo_profile_pic'])) {
-        update_post_meta($order_id, '_billing_bigo_profile_pic', esc_url_raw($_POST['billing_bigo_profile_pic']));
-    }
-}
-
-// Add Bigo user info to order details
-add_action('woocommerce_admin_order_data_after_billing_address', 'dd_display_bigo_user_info');
-function dd_display_bigo_user_info($order) {
-    $bigo_id = get_post_meta($order->get_id(), '_billing_bigo_id', true);
-    $nickname = get_post_meta($order->get_id(), '_billing_bigo_nickname', true);
-    $profile_pic = get_post_meta($order->get_id(), '_billing_bigo_profile_pic', true);
+    $bigo_id = isset($_POST['billing_bigo_id']) ? sanitize_text_field($_POST['billing_bigo_id']) : '';
     
     if ($bigo_id) {
-        echo '<h3>' . __('Bigo User Information', 'dd-fraud-prevention') . '</h3>';
-        echo '<p><strong>' . __('Bigo ID:', 'dd-fraud-prevention') . '</strong> ' . esc_html($bigo_id) . '</p>';
+        // Try to get cached user info first
+        $user_info = get_transient('dd_bigo_user_' . $bigo_id);
         
-        if ($nickname) {
-            echo '<p><strong>' . __('Nickname:', 'dd-fraud-prevention') . '</strong> ' . esc_html($nickname) . '</p>';
-        }
-        
-        if ($profile_pic) {
-            echo '<p><strong>' . __('Profile Picture:', 'dd-fraud-prevention') . '</strong></p>';
-            echo '<img src="' . esc_url($profile_pic) . '" alt="Profile Picture" style="max-width:100px; border-radius:50%;">';
-        }
-    }
-}
-
-// Add Bigo user info to order emails
-add_action('woocommerce_email_after_order_table', 'dd_add_bigo_user_info_to_emails', 10, 4);
-function dd_add_bigo_user_info_to_emails($order, $is_admin_email, $plain_text, $email) {
-    $bigo_id = get_post_meta($order->get_id(), '_billing_bigo_id', true);
-    $nickname = get_post_meta($order->get_id(), '_billing_bigo_nickname', true);
-    $profile_pic = get_post_meta($order->get_id(), '_billing_bigo_profile_pic', true);
-    
-    if ($bigo_id) {
-        if ($plain_text) {
-            echo "\n\n==========\n\n";
-            echo __('Bigo User Information', 'dd-fraud-prevention') . "\n\n";
-            echo __('Bigo ID:', 'dd-fraud-prevention') . ' ' . esc_html($bigo_id) . "\n";
-            
-            if ($nickname) {
-                echo __('Nickname:', 'dd-fraud-prevention') . ' ' . esc_html($nickname) . "\n";
-            }
-            
-            if ($profile_pic) {
-                echo __('Profile Picture URL:', 'dd-fraud-prevention') . ' ' . esc_url($profile_pic) . "\n";
-            }
-            
-            echo "\n==========\n\n";
+        if ($user_info) {
+            error_log('DD Fraud Prevention - Found cached Bigo user info: ' . print_r($user_info, true));
+            update_post_meta($order_id, '_billing_bigo_nickname', sanitize_text_field($user_info['nickname']));
+            update_post_meta($order_id, '_billing_bigo_profile_pic', esc_url_raw($user_info['profile_pic']));
         } else {
-            echo '<h2>' . __('Bigo User Information', 'dd-fraud-prevention') . '</h2>';
-            echo '<p><strong>' . __('Bigo ID:', 'dd-fraud-prevention') . '</strong> ' . esc_html($bigo_id) . '</p>';
-            
-            if ($nickname) {
-                echo '<p><strong>' . __('Nickname:', 'dd-fraud-prevention') . '</strong> ' . esc_html($nickname) . '</p>';
+            // Fallback to POST data
+            if (!empty($_POST['billing_bigo_nickname'])) {
+                update_post_meta($order_id, '_billing_bigo_nickname', sanitize_text_field($_POST['billing_bigo_nickname']));
             }
-            
-            if ($profile_pic) {
-                echo '<p><strong>' . __('Profile Picture:', 'dd-fraud-prevention') . '</strong></p>';
-                echo '<img src="' . esc_url($profile_pic) . '" alt="Profile Picture" style="max-width:100px; border-radius:50%;">';
+            if (!empty($_POST['billing_bigo_profile_pic'])) {
+                update_post_meta($order_id, '_billing_bigo_profile_pic', esc_url_raw($_POST['billing_bigo_profile_pic']));
             }
         }
+        
+        // Verify saved data
+        $saved_nickname = get_post_meta($order_id, '_billing_bigo_nickname', true);
+        $saved_profile_pic = get_post_meta($order_id, '_billing_bigo_profile_pic', true);
+        
+        error_log('DD Fraud Prevention - Saved Bigo user info:');
+        error_log('DD Fraud Prevention - Nickname: ' . $saved_nickname);
+        error_log('DD Fraud Prevention - Profile Picture: ' . $saved_profile_pic);
     }
 }
