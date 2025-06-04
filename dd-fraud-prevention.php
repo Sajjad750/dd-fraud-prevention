@@ -37,6 +37,9 @@ foreach ( glob( plugin_dir_path( __FILE__ ) . 'admin/*.php' ) as $file ) {
 // Include logger class
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-dd-fraud-logger.php';
 
+// Include Bigo API classes
+require_once plugin_dir_path(__FILE__) . 'includes/class-dd-bigo-api.php';
+
 /**
  * Currently plugin version.
  * Start at version 1.0.0 and use SemVer - https://semver.org
